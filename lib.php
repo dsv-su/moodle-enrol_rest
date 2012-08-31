@@ -88,13 +88,14 @@ class enrol_rest_plugin extends enrol_plugin {
     public function cron() {
         global $CFG, $DB;
         $sapiname              = php_sapi_name();
+        $runninguser           = exec('whoami');
         $automaticenrolment    = $this->get_config('automaticenrolment');
         $automaticusercreation = $this->get_config('automaticusercreation');
         $courseresource        = $this->get_config('courseresource');
         $userresource          = $this->get_config('userresource');
         $userrealm             = $this->get_config('userrealm');
 
-        if (!$automaticenrolment && $sapiname != 'cli') {
+        if (!$automaticenrolment && ($sapiname != 'cli' || $runninguser == 'www-data')) {
             echo get_string('automaticenrolmentdisabled', 'enrol_rest')."\n";
             return;
         }
