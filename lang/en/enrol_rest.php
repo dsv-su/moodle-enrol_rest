@@ -27,10 +27,12 @@
 $string['automaticenrolment'] = 'Automatic enrolment';
 $string['automaticenrolment_desc'] = 'With automatic enrolment enabled users will be enrolled to courses without confirmation. If disabled, students can only be enrolled through interactive enrolment.';
 $string['automaticenrolmentdisabled'] = 'Automatic enrolment disabled for REST enrolment. Skipping.';
+$string['automaticunenrolment'] = 'Automatic unenrolment';
 $string['automaticusercreation'] = 'Automatic user creation';
 $string['automaticusercreation_desc'] = 'With automatic user creation enabled users that does not have an account will get one created for them. If disabled, users without accounts will be skipped.';
-$string['confirmenrolmenttocourse'] = 'Do you want to enrol students to {$a}';
+$string['confirmenrolmenttocourse'] = 'Do you want to enrol/unenrol students to {$a}';
 $string['confirmenrolment'] = 'Do you want to enrol {$a->username} to {$a->coursename} from {$a->coursestart}';
+$string['confirmunenrolment'] = 'Do you want to unenrol {$a->username} from {$a->coursename}';
 $string['confirmusercreation'] = 'Do you want to create an account for {$a}';
 $string['courseresource'] = 'Course information resource';
 $string['emptystudentlist'] = 'No students found for courseid {$a}. Is the courseid incorrect?';

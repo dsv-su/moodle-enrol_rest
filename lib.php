@@ -63,7 +63,7 @@ class enrol_rest_plugin extends enrol_plugin {
      * @param string $question The question that the user needs to answer.
      * @return bool True if the user answered y, false if the user answered f.
      */
-    private function ask_stdin_question($question) {
+    private static function ask_stdin_question($question) {
         while (true) {
             echo "\n".$question." [y/n] ";
             $answer = strtolower(trim(fgets(STDIN)));
@@ -75,9 +75,161 @@ class enrol_rest_plugin extends enrol_plugin {
 
     /**
      * Allow teachers and managers to fiddle with the roles.
+     *
+     * @return bool Will always return false.
      */
     public function roles_protected() {
         return false;
+    }
+
+    /**
+     * Take a list of students and enrol to the course. Create accounts if not currently existing.
+     *
+     * @param array $userlist An array of students to enrol to the course.
+     * @param stdClass $course The course object to enrol students to.
+     */
+    private function enrol_list_of_users($userlist, $course) {
+        $automaticenrolment    = $this->get_config('automaticenrolment');
+        $automaticusercreation = $this->get_config('automaticusercreation');
+        $courseresource        = $this->get_config('courseresource');
+        $userrealm             = $this->get_config('userrealm');
+        $userresource          = $this->get_config('userresource');
+
+        $courseinformation = $this->curl_request(array($courseresource, $course->idnumber));
+
+        if (isset($courseinformation->startDate)) {
+            $coursestart = strtotime($courseinformation->startDate);
+        } else {
+            $coursestart = 0;
+        }
+
+        foreach ($userlist as $user) {
+            global $DB;
+
+            $userinmoodle        = $DB->get_record('user', array('idnumber' => $user->person->id));
+            $fullname            = new stdClass;
+            $fullname->firstname = $user->person->firstName;
+            $fullname->lastname  = $user->person->lastName;
+
+            if (!$userinmoodle || $userinmoodle->deleted == 1) {
+                $usernames = $this->curl_request(array($userresource, $user->person->id, 'usernames'));
+
+                if ($userrealm) {
+                    foreach ($usernames as $usernamerecord) {
+                        if (isset($usernamerecord->realm) && $usernamerecord->realm == $userrealm) {
+                            $username = strtolower($usernamerecord->username.'@'.$usernamerecord->realm);
+                            break;
+                        }
+                    }
+                } else {
+                    $username = $user->person->email;
+                }
+
+                if ($username) {
+                    if ($automaticusercreation) {
+                        $createuser = true;
+                    } else {
+                        $a           = new stdClass;
+                        $a->fullname = fullname($fullname);
+                        $a->username = $username;
+                        echo get_string("noaccountfound", "enrol_rest", $a)."\n";
+                        $createuser = self::ask_stdin_question(get_string('confirmusercreation', 
+                                'enrol_rest', fullname($fullname)));
+                    }
+
+                    if ($createuser) {
+                        if (!$userinmoodle) {
+                            $DB->insert_record('user', array(
+                                'auth'       => 'shibboleth',
+                                'confirmed'  => 1,
+                                'mnethostid' => 1,
+                                'username'   => $username,
+                                'idnumber'   => $user->person->id,
+                                'firstname'  => $user->person->firstName,
+                                'lastname'   => $user->person->lastName,
+                                'email'      => $user->person->email
+                            ));
+                        } else if ($userinmoodle->deleted == 1) {
+                            $userinmoodle->deleted = 0;
+                            $DB->update_record('user', $userinmoodle);
+                        }
+
+                        $userinmoodle = true;
+                        echo get_string('usercreated', 'enrol_rest', $username)."\n";
+                    }
+                } else {
+                    echo get_string('usernamenotfound', 'enrol_rest', fullname($fullname))."\n";
+                }
+
+            } else {
+                echo get_string('userexists', 'enrol_rest', fullname($fullname))."\n";
+            }
+
+            if ($userinmoodle) {
+                $moodleuser    = $DB->get_record('user', array('idnumber' => $user->person->id));
+                $coursecontext = context_course::instance($course->id);
+
+                if ($automaticenrolment) {
+                    $enroluser = true;
+                } else {
+                    $a              = new stdClass;
+                    $a->username    = fullname($moodleuser);
+                    $a->coursename  = $course->fullname;
+                    $a->coursestart = date("r", $coursestart);
+                    $enroluser = self::ask_stdin_question(get_string('confirmenrolment', 'enrol_rest', $a));
+                }
+
+                if ($enroluser) {
+                    $this->process_records('add', 5, $moodleuser, $course, $coursestart, 0);
+                }
+            }
+        }
+    }
+
+    /**
+     * Take a list of students and unenrol from the course.
+     *
+     * @param array $userlist The array of users.
+     * @param stdClass $course The course to unenrol from.
+     */
+    private function unenrol_list_of_users($userlist, $course) {
+        global $DB;
+        $automaticunenrolment = $this->get_config('automaticunenrolment');
+        $userstounenrol       = $DB->get_records_list('user', 'idnumber', array_keys($userlist));
+
+        foreach ($userstounenrol as $user) {
+            $a = new stdClass;
+            $a->username = fullname($user);
+            $a->coursename = $course->fullname;
+            if (!$automaticunenrolment) {
+                $unenrolfromcourse = self::ask_stdin_question(get_string('confirmunenrolment', 'enrol_rest', $a));
+            } else {
+                $unenrolfromcourse = true;
+            }
+
+            if ($unenrolfromcourse) {
+                $this->process_records('delete', 0, $user, $course, 0, 0);
+            }
+        }
+    }
+
+    /**
+     * A method that takes an two arrays, one source array and one array that contains keys from the first array.
+     * The method will pick the elements specified by the keys in the secound array and return a new array that 
+     * only contains those keys.
+     *
+     * @param array $array The source array
+     * @param array $keys An array of keys to select from the source array.
+     * @return array The resulting array with the selected keys.
+     */
+    private static function pick_elements_from_array($array, $keys) {
+        $result = array();
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $array)) {
+                $result[$key] = $array[$key];
+            }
+        }
+        return $result;
     }
 
     /**
@@ -87,13 +239,10 @@ class enrol_rest_plugin extends enrol_plugin {
      */
     public function cron() {
         global $CFG, $DB;
-        $sapiname              = php_sapi_name();
-        $runninguser           = exec('whoami');
-        $automaticenrolment    = $this->get_config('automaticenrolment');
-        $automaticusercreation = $this->get_config('automaticusercreation');
-        $courseresource        = $this->get_config('courseresource');
-        $userresource          = $this->get_config('userresource');
-        $userrealm             = $this->get_config('userrealm');
+        $sapiname           = php_sapi_name();
+        $runninguser        = exec('whoami');
+        $automaticenrolment = $this->get_config('automaticenrolment');
+        $courseresource     = $this->get_config('courseresource');
 
         if (!$automaticenrolment && ($sapiname != 'cli' || $runninguser == 'www-data')) {
             echo get_string('automaticenrolmentdisabled', 'enrol_rest')."\n";
@@ -106,110 +255,39 @@ class enrol_rest_plugin extends enrol_plugin {
                 if ($automaticenrolment) {
                     $enroltocourse = true;
                 } else {
-                    $enroltocourse = $this->ask_stdin_question(
+                    $enroltocourse = self::ask_stdin_question(
                             get_string("confirmenrolmenttocourse", "enrol_rest", $course->fullname));
                 }
-                
+
                 if ($enroltocourse) {
                     $courseids = preg_split('/,/', $course->idnumber);
                     foreach($courseids as $courseid) {
                         $courseid          = trim($courseid);
                         $studentlist       = $this->curl_request(array($courseresource, $courseid, 'participants'));
-                        $courseinformation = $this->curl_request(array($courseresource, $courseid));
-
-                        if (isset($courseinformation->startDate)) {
-                            $coursestart = strtotime($courseinformation->startDate);
-                        } else {
-                            $coursestart = 0;
-                        }
 
                         if (empty($studentlist)) {
                             echo get_string('emptystudentlist', 'enrol_rest', $courseid)."\n";
                             continue;
                         }
 
+                        $studentstoenrol = array();
+
                         foreach ($studentlist as $student) {
-                            $userinmoodle        = $DB->get_record('user', array('idnumber' => $student->person->id));
-                            $fullname            = new stdClass;
-                            $fullname->firstname = $student->person->firstName;
-                            $fullname->lastname  = $student->person->lastName;
-
-                            if (!$userinmoodle || $userinmoodle->deleted == 1) {
-                                $usernames = $this->curl_request(array($userresource, $student->person->id, 'usernames'));
-
-                                if ($userrealm) {
-                                    foreach ($usernames as $usernamerecord) {
-                                        if (isset($usernamerecord->realm) && $usernamerecord->realm == $userrealm) {
-                                            $username = strtolower($usernamerecord->username.'@'.$usernamerecord->realm);
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    $username = $student->person->email;
-                                }
-
-                                if ($username) {
-                                    if ($automaticusercreation) {
-                                        $createuser = true;
-                                    } else {
-                                        $a           = new stdClass;
-                                        $a->fullname = fullname($fullname);
-                                        $a->username = $username;
-                                        echo get_string("noaccountfound", "enrol_rest", $a)."\n";
-                                        $createuser = $this->ask_stdin_question(get_string('confirmusercreation', 
-                                                'enrol_rest', fullname($fullname)));
-                                    }
-
-                                    if ($createuser) {
-                                        if (!$userinmoodle) {
-                                            $DB->insert_record('user', array(
-                                                'auth'       => 'shibboleth',
-                                                'confirmed'  => 1,
-                                                'mnethostid' => 1,
-                                                'username'   => $username,
-                                                'idnumber'   => $student->person->id,
-                                                'firstname'  => $student->person->firstName,
-                                                'lastname'   => $student->person->lastName,
-                                                'email'      => $student->person->email
-                                            ));
-                                        } else if ($userinmoodle->deleted == 1) {
-                                            $userinmoodle->deleted = 0;
-                                            $DB->update_record('user', $userinmoodle);
-                                        }
-                                        
-                                        $userinmoodle = true;
-                                        echo get_string('usercreated', 'enrol_rest', $username)."\n";
-                                    }
-                                } else {
-                                    echo get_string('usernamenotfound', 'enrol_rest', fullname($fullname))."\n";
-                                }
-                            
-                            } else {
-                                echo get_string('userexists', 'enrol_rest', fullname($fullname))."\n";
-                            }
-
-                            if ($userinmoodle) {
-                                $moodleuser    = $DB->get_record('user', array('idnumber' => $student->person->id));
-                                $coursecontext = context_course::instance($course->id);
-                                if (!is_enrolled($coursecontext, $moodleuser)) {
-                                    if ($automaticenrolment) {
-                                        $enroluser = true;
-                                    } else {
-                                        $a              = new stdClass;
-                                        $a->username    = fullname($moodleuser);
-                                        $a->coursename  = $course->fullname;
-                                        $a->coursestart = date("r", $coursestart);
-                                        $enroluser = $this->ask_stdin_question(get_string('confirmenrolment', 'enrol_rest', $a));
-                                    }
-
-                                    if ($enroluser) {
-                                        $this->process_records('add', 5, $moodleuser, $course, $coursestart, 0);
-                                    }
-                                } else {
-                                     echo get_string('enrolmentexists', 'enrol_rest', fullname($moodleuser))."\n";
-                                }
-                            }
+                            $studentdict[$student->person->id] = $student;
                         }
+
+                        $coursecontext = context_course::instance($course->id);
+                        $enrolledusers = $DB->get_records_sql('SELECT u.idnumber FROM {user_enrolments} ue '.
+                                                              'JOIN moodle.mdl_git_user u ON u.id = ue.userid '.
+                                                              'JOIN {enrol} e ON ue.enrolid = e.id '.
+                                                              'WHERE e.enrol = ? '.
+                                                              'AND e.courseid = ?', array('rest', $course->id));
+
+                        $userstoenroll = array_diff(array_keys($studentdict), array_keys($enrolledusers));
+                        $this->enrol_list_of_users(self::pick_elements_from_array($studentdict, $userstoenroll), $course);
+
+                        $userstounenroll = array_diff(array_keys($enrolledusers), array_keys($studentdict));
+                        $this->unenrol_list_of_users(self::pick_elements_from_array($enrolledusers, $userstounenroll), $course);
                     }
                 }
             }
@@ -229,7 +307,6 @@ class enrol_rest_plugin extends enrol_plugin {
      */
     private function process_records($action, $roleid, $user, $course, $timestart, $timeend) {
         global $CFG, $DB;
-        unset($elog);
 
         // Create/resurrect a context object
         $context = get_context_instance(CONTEXT_COURSE, $course->id);
@@ -247,9 +324,14 @@ class enrol_rest_plugin extends enrol_plugin {
             }
             // Enrol the user with this plugin instance
             $this->enrol_user($instance, $user->id, $roleid, $timestart, $timeend);
-        }
-        if (empty($elog)) {
-            $elog = "OK\n";
+        } else if ($action == 'delete') {
+            $instances = $DB->get_records('enrol', array(
+                    'enrol'    => 'rest', 
+                    'courseid' => $course->id
+            ));
+            foreach ($instances as $instance) {
+                $this->unenrol_user($instance, $user->id);
+            }
         }
 
         return true;
