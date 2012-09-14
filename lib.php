@@ -278,7 +278,7 @@ class enrol_rest_plugin extends enrol_plugin {
 
                         $coursecontext = context_course::instance($course->id);
                         $enrolledusers = $DB->get_records_sql('SELECT u.idnumber FROM {user_enrolments} ue '.
-                                                              'JOIN moodle.mdl_git_user u ON u.id = ue.userid '.
+                                                              'JOIN {user} u ON u.id = ue.userid '.
                                                               'JOIN {enrol} e ON ue.enrolid = e.id '.
                                                               'WHERE e.enrol = ? '.
                                                               'AND e.courseid = ?', array('rest', $course->id));
