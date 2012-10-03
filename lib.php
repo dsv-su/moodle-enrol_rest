@@ -244,7 +244,7 @@ class enrol_rest_plugin extends enrol_plugin {
         $automaticenrolment         = $this->get_config('automaticenrolment');
         $courseresource             = $this->get_config('courseresource');
 
-        if (!$automaticenrolment && ($sapiname != 'cli' || $manualenrolmentenvironment == 'true')) {
+        if (!$automaticenrolment && ($sapiname != 'cli' || $manualenrolmentenvironment != 'true')) {
             echo get_string('automaticenrolmentdisabled', 'enrol_rest')."\n";
             return;
         }
