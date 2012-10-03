@@ -270,7 +270,7 @@ class enrol_rest_plugin extends enrol_plugin {
                             continue;
                         }
 
-                        $studentstoenrol = array();
+                        $studentdict = array();
 
                         foreach ($studentlist as $student) {
                             $studentdict[$student->person->id] = $student;
