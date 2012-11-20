@@ -240,7 +240,7 @@ class enrol_rest_plugin extends enrol_plugin {
     public function cron() {
         global $CFG, $DB;
         $sapiname                   = php_sapi_name();
-		$manualenrolmentenvironment = getenv('MANUALENROLMENT');
+        $manualenrolmentenvironment = getenv('MANUALENROLMENT');
         $automaticenrolment         = $this->get_config('automaticenrolment');
         $courseresource             = $this->get_config('courseresource');
 
