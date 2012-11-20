@@ -88,14 +88,14 @@ class enrol_rest_plugin extends enrol_plugin {
      * @param array $userlist An array of students to enrol to the course.
      * @param stdClass $course The course object to enrol students to.
      */
-    private function enrol_list_of_users($userlist, $course) {
+    private function enrol_list_of_users($userlist, $course, $courseid) {
         $automaticenrolment    = $this->get_config('automaticenrolment');
         $automaticusercreation = $this->get_config('automaticusercreation');
         $courseresource        = $this->get_config('courseresource');
         $userrealm             = $this->get_config('userrealm');
         $userresource          = $this->get_config('userresource');
 
-        $courseinformation = $this->curl_request(array($courseresource, $course->idnumber));
+        $courseinformation = $this->curl_request(array($courseresource, $courseid));
 
         if (isset($courseinformation->startDate)) {
             $coursestart = strtotime($courseinformation->startDate);
@@ -284,7 +284,7 @@ class enrol_rest_plugin extends enrol_plugin {
                                                               'AND e.courseid = ?', array('rest', $course->id));
 
                         $userstoenroll = array_diff(array_keys($studentdict), array_keys($enrolledusers));
-                        $this->enrol_list_of_users(self::pick_elements_from_array($studentdict, $userstoenroll), $course);
+                        $this->enrol_list_of_users(self::pick_elements_from_array($studentdict, $userstoenroll), $course, $courseid);
 
                         $userstounenroll = array_diff(array_keys($enrolledusers), array_keys($studentdict));
                         $this->unenrol_list_of_users(self::pick_elements_from_array($enrolledusers, $userstounenroll), $course);
