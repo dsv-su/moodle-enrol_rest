@@ -139,16 +139,27 @@ class enrol_rest_plugin extends enrol_plugin {
 
                     if ($createuser) {
                         if (!$userinmoodle) {
-                            $DB->insert_record('user', array(
-                                'auth'       => 'shibboleth',
-                                'confirmed'  => 1,
-                                'mnethostid' => 1,
-                                'username'   => $username,
-                                'idnumber'   => $user->person->id,
-                                'firstname'  => $user->person->firstName,
-                                'lastname'   => $user->person->lastName,
-                                'email'      => $user->person->email
-                            ));
+                            // Print warning if Daisy ID is missing
+                            if ($user->person->id == NULL) {
+                                echo get_string('warning', 'enrol_rest')."user doesn't have a DaisyID assigned! \n";
+                            }
+
+                            // Try to create new user
+                            try {
+                                $DB->insert_record('user', array(
+                                    'auth'       => 'shibboleth',
+                                    'confirmed'  => 1,
+                                    'mnethostid' => 1,
+                                    'username'   => $username,
+                                    'idnumber'   => $user->person->id,
+                                    'firstname'  => $user->person->firstName,
+                                    'lastname'   => $user->person->lastName,
+                                    'email'      => $user->person->email
+                                ));
+                            } catch (dml_exception $e) {
+                                echo get_string('database_error', 'enrol_rest').$e->getMessage()."\n";
+                            }
+
                         } else if ($userinmoodle->deleted == 1) {
                             $userinmoodle->deleted = 0;
                             $DB->update_record('user', $userinmoodle);
