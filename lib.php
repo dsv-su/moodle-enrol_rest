@@ -171,7 +171,7 @@ class enrol_rest_plugin extends enrol_plugin {
                                 echo get_string('withoutdaisy', 'enrol_rest', $username)."\n";
                                 try {
                                     $DB->update_record('user', array(
-                                        'id' => $withoutdaisy->id
+                                        'id' => $withoutdaisy->id,
                                         'idnumber' => $user->person->id));
 
                                 } catch (dml_exception $e) {
