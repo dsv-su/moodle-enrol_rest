@@ -139,11 +139,6 @@ class enrol_rest_plugin extends enrol_plugin {
 
                     if ($createuser) {
                         if (!$userinmoodle) {
-                            // Print warning if Daisy ID is missing
-                            if ($user->person->id == NULL) {
-                                echo get_string('warning', 'enrol_rest')."user doesn't have a DaisyID assigned! \n";
-                            }
-
                             // Try to create new user
                             try {
                                 $DB->insert_record('user', array(
@@ -157,7 +152,14 @@ class enrol_rest_plugin extends enrol_plugin {
                                     'email'      => $user->person->email
                                 ));
                             } catch (dml_exception $e) {
-                                echo get_string('database_error', 'enrol_rest').$e->getMessage()."\n";
+                                echo get_string('database_error', 'enrol_rest')."when creating user "
+                                    .$username."\n";
+                                echo "User info fetched from Daisy: \n"
+                                    ."ID: ".$user->person->id."\n"
+                                    ."Firstname: ".$user->person->firstName."\n"
+                                    ."Lastname: ".$user->person->lastName."\n"
+                                    ."Email: ".$user->person->email."\n";
+                                die();
                             }
 
                         } else if ($userinmoodle->deleted == 1) {

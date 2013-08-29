@@ -48,4 +48,3 @@ $string['userresource'] = 'User information resource';
 $string['userexists'] = 'User {$a} does already have an account.';
 $string['usernamenotfound'] = 'Username for {$a} not found. No user created';
 $string['userrealm'] = 'User realm';
-$string['warning'] = 'Warning: ';
