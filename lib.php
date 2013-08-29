@@ -74,6 +74,26 @@ class enrol_rest_plugin extends enrol_plugin {
     }
 
     /**
+     *  Sends an error message to the defined receiver, if one is specified
+     * @param string $message with the message to send
+     */
+    private function send_error_email($message) {
+        global $CFG;
+        $errorreceiver = $this->get_config('errorreceiver');
+        if ($errorreceiver) {
+            $email = "An error occured while automatically enrolling users on "
+                .$CFG->wwwroot
+                .". The error log can be seen below: \n";
+            $email."<pre>"
+                .$message
+                ."</pre>";
+
+            $headers = 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
+            error_log($email, 1, $errorreceiver, $headers);
+        }
+    }
+
+    /**
      * Allow teachers and managers to fiddle with the roles.
      *
      * @return bool Will always return false.
@@ -106,6 +126,7 @@ class enrol_rest_plugin extends enrol_plugin {
         foreach ($userlist as $user) {
             global $DB;
 
+            // Check if the user already has an account
             $userinmoodle        = $DB->get_record('user', array('idnumber' => $user->person->id));
             $fullname            = new stdClass;
             $fullname->firstname = $user->person->firstName;
@@ -114,6 +135,7 @@ class enrol_rest_plugin extends enrol_plugin {
             if (!$userinmoodle || $userinmoodle->deleted == 1) {
                 $usernames = $this->curl_request(array($userresource, $user->person->id, 'usernames'));
 
+                // If a userrealm is set in moodle
                 if ($userrealm) {
                     foreach ($usernames as $usernamerecord) {
                         if (isset($usernamerecord->realm) && $usernamerecord->realm == $userrealm) {
@@ -138,28 +160,60 @@ class enrol_rest_plugin extends enrol_plugin {
                     }
 
                     if ($createuser) {
+                        $createuserfailed = false;
+
                         if (!$userinmoodle) {
-                            // Try to create new user
-                            try {
-                                $DB->insert_record('user', array(
-                                    'auth'       => 'shibboleth',
-                                    'confirmed'  => 1,
-                                    'mnethostid' => 1,
-                                    'username'   => $username,
-                                    'idnumber'   => $user->person->id,
-                                    'firstname'  => $user->person->firstName,
-                                    'lastname'   => $user->person->lastName,
-                                    'email'      => $user->person->email
-                                ));
-                            } catch (dml_exception $e) {
-                                echo get_string('database_error', 'enrol_rest')."when creating user "
-                                    .$username."\n";
-                                echo "User info fetched from Daisy: \n"
-                                    ."ID: ".$user->person->id."\n"
-                                    ."Firstname: ".$user->person->firstName."\n"
-                                    ."Lastname: ".$user->person->lastName."\n"
-                                    ."Email: ".$user->person->email."\n";
-                                die();
+                            // Check if the user exists, but without a DaisyID
+                            $withoutdaisy = $DB->get_record('user', array('username' => $username));
+
+                            if ($withoutdaisy) {
+                                // Update the user with a DaisyID
+                                echo get_string('withoutdaisy', 'enrol_rest', $username)."\n";
+                                try {
+                                    $DB->update_record('user', array(
+                                        'id' => $withoutdaisy->id
+                                        'idnumber' => $user->person->id));
+
+                                } catch (dml_exception $e) {
+                                    $error = get_string('database_error', 'enrol_rest')."failed to update user "
+                                        .$username." with DaisyID ".$user->person->id."\n";
+                                    echo $error;
+
+                                    // Send an email so that someone can fix this
+                                    $this->send_error_email($error);
+
+                                    $createuserfailed = true;
+                                }
+                            } else {
+                                // Try to create new user
+                                try {
+                                    $DB->insert_record('user', array(
+                                        'auth'       => 'shibboleth',
+                                        'confirmed'  => 1,
+                                        'mnethostid' => 1,
+                                        'username'   => $username,
+                                        'idnumber'   => $user->person->id,
+                                        'firstname'  => $user->person->firstName,
+                                        'lastname'   => $user->person->lastName,
+                                        'email'      => $user->person->email
+                                    ));
+
+                                } catch (dml_exception $e) {
+                                    $error = get_string('database_error', 'enrol_rest')."failed to create user "
+                                        .$username."\n";
+                                    $error."User info fetched from Daisy: \n"
+                                        ."ID: ".$user->person->id."\n"
+                                        ."Username: ".$username."\n"
+                                        ."Firstname: ".$user->person->firstName."\n"
+                                        ."Lastname: ".$user->person->lastName."\n"
+                                        ."Email: ".$user->person->email."\n";
+                                    echo $error;
+
+                                    // Send an email so that someone can fix this
+                                    $this->send_error_email($error);
+
+                                    $createuserfailed = true;
+                                }
                             }
 
                         } else if ($userinmoodle->deleted == 1) {
@@ -167,8 +221,10 @@ class enrol_rest_plugin extends enrol_plugin {
                             $DB->update_record('user', $userinmoodle);
                         }
 
-                        $userinmoodle = true;
-                        echo get_string('usercreated', 'enrol_rest', $username)."\n";
+                        if (!$createuserfailed) {
+                            $userinmoodle = true;
+                            echo get_string('usercreated', 'enrol_rest', $username)."\n";
+                        }
                     }
                 } else {
                     echo get_string('usernamenotfound', 'enrol_rest', fullname($fullname))."\n";
@@ -299,8 +355,11 @@ class enrol_rest_plugin extends enrol_plugin {
                         $userstoenroll = array_diff(array_keys($studentdict), array_keys($enrolledusers));
                         $this->enrol_list_of_users(self::pick_elements_from_array($studentdict, $userstoenroll), $course, $courseid);
 
-                        $userstounenroll = array_diff(array_keys($enrolledusers), array_keys($studentdict));
-                        $this->unenrol_list_of_users(self::pick_elements_from_array($enrolledusers, $userstounenroll), $course);
+                        /**
+                         * We don't want to unenroll students ATM..
+                         * $userstounenroll = array_diff(array_keys($enrolledusers), array_keys($studentdict));
+                         * $this->unenrol_list_of_users(self::pick_elements_from_array($enrolledusers, $userstounenroll), $course);
+                         */
                     }
                 }
             }
