@@ -51,4 +51,4 @@ $string['userresource'] = 'User information resource';
 $string['userexists'] = 'User {$a} does already have an account.';
 $string['usernamenotfound'] = 'Username for {$a} not found. No user created';
 $string['userrealm'] = 'User realm';
-$string['withoutdaisy'] = "User {a} already has an account, but it's missing a DaisyID. Trying to add...";
+$string['withoutdaisy'] = "User {$a} already has an account, but it's missing a DaisyID. Trying to add...";
