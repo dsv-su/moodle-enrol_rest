@@ -93,7 +93,7 @@ class enrol_rest_plugin extends enrol_plugin {
             	$email .= $m . "\n";
             }
 
-			$email .= "</pre>";
+            $email .= "</pre>";
 
             $headers = 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
 
@@ -294,10 +294,6 @@ class enrol_rest_plugin extends enrol_plugin {
             $userstounenrol = $DB->get_records_list('user', 'idnumber', array_keys($userlist));
 
             foreach ($userstounenrol as $user) {
-                $a = new stdClass;
-                $a->username = fullname($user);
-                $a->coursename = $course->fullname;
-
                 $this->process_records('delete', 0, $user, $course, 0, 0);
             }
 
