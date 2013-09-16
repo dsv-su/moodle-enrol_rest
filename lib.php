@@ -75,21 +75,35 @@ class enrol_rest_plugin extends enrol_plugin {
 
     /**
      *  Sends an error message to the defined receiver, if one is specified
-     * @param string $message with the message to send
+     * @param array $message containing encountered errors
      */
     private function send_error_email($message) {
         global $CFG;
         $errorreceiver = $this->get_config('errorreceiver');
+
+        // If there's an error-receiver set in the settings
         if ($errorreceiver) {
+            $instancename = $CFG->wwwroot;
             $email = "An error occured while automatically enrolling users on "
-                .$CFG->wwwroot
-                .". The error log can be seen below: \n";
-            $email."<pre>"
-                .$message
-                ."</pre>";
+                .$instancename
+                .". The error messages can be seen below: \n";
+            $email .= "<pre>";
+
+            foreach ($message as $m) {
+            	$email .= $m . "\n";
+            }
+
+			$email .= "</pre>";
 
             $headers = 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
-            error_log($email, 1, $errorreceiver, $headers);
+
+            // Send email
+            $sent = mail($errorreceiver, "Errors encountered when doing automatic enrolments on ".$instancename,
+                $email, $headers);
+
+            if ($sent) {
+                echo "Error-notifying email sent! \n";
+            }
         }
     }
 
@@ -107,6 +121,8 @@ class enrol_rest_plugin extends enrol_plugin {
      *
      * @param array $userlist An array of students to enrol to the course.
      * @param stdClass $course The course object to enrol students to.
+     *
+     * @return array containing any generated error messages
      */
     private function enrol_list_of_users($userlist, $course, $courseid) {
         $automaticenrolment    = $this->get_config('automaticenrolment');
@@ -116,6 +132,9 @@ class enrol_rest_plugin extends enrol_plugin {
         $userresource          = $this->get_config('userresource');
 
         $courseinformation = $this->curl_request(array($courseresource, $courseid));
+
+        // This list keeps track of any errors that might arise during the enrollment
+        $errors = array();
 
         if (isset($courseinformation->startDate)) {
             $coursestart = strtotime($courseinformation->startDate);
@@ -168,19 +187,21 @@ class enrol_rest_plugin extends enrol_plugin {
 
                             if ($withoutdaisy) {
                                 // Update the user with a DaisyID
-                                echo get_string('withoutdaisy', 'enrol_rest', $username)."\n";
+                                echo get_string('withoutdaisy', 'enrol_rest', (string) $username)."\n";
+
                                 try {
                                     $DB->update_record('user', array(
                                         'id' => $withoutdaisy->id,
                                         'idnumber' => $user->person->id));
+                                    echo "Successfully added DaisyID \n";
 
                                 } catch (dml_exception $e) {
                                     $error = get_string('database_error', 'enrol_rest')."failed to update user "
                                         .$username." with DaisyID ".$user->person->id."\n";
                                     echo $error;
 
-                                    // Send an email so that someone can fix this
-                                    $this->send_error_email($error);
+                                    // Add this to the errors array
+                                    $errors[] = $error;
 
                                     $createuserfailed = true;
                                 }
@@ -209,8 +230,8 @@ class enrol_rest_plugin extends enrol_plugin {
                                         ."Email: ".$user->person->email."\n";
                                     echo $error;
 
-                                    // Send an email so that someone can fix this
-                                    $this->send_error_email($error);
+                                    // Add this to the errors array
+                                    $errors[] = $error;
 
                                     $createuserfailed = true;
                                 }
@@ -223,7 +244,7 @@ class enrol_rest_plugin extends enrol_plugin {
 
                         if (!$createuserfailed) {
                             $userinmoodle = true;
-                            echo get_string('usercreated', 'enrol_rest', $username)."\n";
+                            echo get_string('usercreated', 'enrol_rest', (string) $username)."\n";
                         }
                     }
                 } else {
@@ -253,6 +274,8 @@ class enrol_rest_plugin extends enrol_plugin {
                 }
             }
         }
+
+        return $errors;
     }
 
     /**
@@ -263,21 +286,36 @@ class enrol_rest_plugin extends enrol_plugin {
      */
     private function unenrol_list_of_users($userlist, $course) {
         global $DB;
+        $manualenrolmentenvironment = getenv('MANUALENROLMENT');
         $automaticunenrolment = $this->get_config('automaticunenrolment');
-        $userstounenrol       = $DB->get_records_list('user', 'idnumber', array_keys($userlist));
 
-        foreach ($userstounenrol as $user) {
-            $a = new stdClass;
-            $a->username = fullname($user);
-            $a->coursename = $course->fullname;
-            if (!$automaticunenrolment) {
-                $unenrolfromcourse = self::ask_stdin_question(get_string('confirmunenrolment', 'enrol_rest', $a));
-            } else {
-                $unenrolfromcourse = true;
+        if (!$manualenrolmentenvironment && $automaticunenrolment) {
+            // Unenroll students automatically
+            $userstounenrol = $DB->get_records_list('user', 'idnumber', array_keys($userlist));
+
+            foreach ($userstounenrol as $user) {
+                $a = new stdClass;
+                $a->username = fullname($user);
+                $a->coursename = $course->fullname;
+
+                $this->process_records('delete', 0, $user, $course, 0, 0);
             }
 
-            if ($unenrolfromcourse) {
-                $this->process_records('delete', 0, $user, $course, 0, 0);
+        } else if ($manualenrolmentenvironment) {
+            // Unenroll students manually
+            $userstounenrol = $DB->get_records_list('user', 'idnumber', array_keys($userlist));
+
+            foreach ($userstounenrol as $user) {
+                $a = new stdClass;
+                $a->username = fullname($user);
+                $a->coursename = $course->fullname;
+
+                // Ask user if this student is to be unenrolled
+                $unenrolfromcourse = self::ask_stdin_question(get_string('confirmunenrolment', 'enrol_rest', $a));
+
+                if ($unenrolfromcourse) {
+                    $this->process_records('delete', 0, $user, $course, 0, 0);
+                }
             }
         }
     }
@@ -323,9 +361,11 @@ class enrol_rest_plugin extends enrol_plugin {
             if ($course->idnumber) {
                 if ($automaticenrolment) {
                     $enroltocourse = true;
-                } else {
+                } else if ($manualenrolmentenvironment) {
                     $enroltocourse = self::ask_stdin_question(
                             get_string("confirmenrolmenttocourse", "enrol_rest", $course->fullname));
+                } else {
+                    continue;
                 }
 
                 if ($enroltocourse) {
@@ -337,6 +377,10 @@ class enrol_rest_plugin extends enrol_plugin {
                         if (empty($studentlist)) {
                             echo get_string('emptystudentlist', 'enrol_rest', $courseid)."\n";
                             continue;
+
+                        } else if ($studentlist === false) {
+                            echo get_string('daisydown', 'enrol_rest')."\n";
+                            die();
                         }
 
                         $studentdict = array();
@@ -353,13 +397,15 @@ class enrol_rest_plugin extends enrol_plugin {
                                                               'AND e.courseid = ?', array('rest', $course->id));
 
                         $userstoenroll = array_diff(array_keys($studentdict), array_keys($enrolledusers));
-                        $this->enrol_list_of_users(self::pick_elements_from_array($studentdict, $userstoenroll), $course, $courseid);
+                        $errors = $this->enrol_list_of_users(self::pick_elements_from_array($studentdict, $userstoenroll), $course, $courseid);
 
-                        /**
-                         * We don't want to unenroll students ATM..
-                         * $userstounenroll = array_diff(array_keys($enrolledusers), array_keys($studentdict));
-                         * $this->unenrol_list_of_users(self::pick_elements_from_array($enrolledusers, $userstounenroll), $course);
-                         */
+                        $userstounenroll = array_diff(array_keys($enrolledusers), array_keys($studentdict));
+                        $this->unenrol_list_of_users(self::pick_elements_from_array($enrolledusers, $userstounenroll), $course);
+
+                        // If any errors has occured, send emails!
+                        if (!empty($errors)) {
+                        	$this->send_error_email($errors);
+                        }
                     }
                 }
             }
