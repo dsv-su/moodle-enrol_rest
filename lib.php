@@ -162,6 +162,7 @@ class enrol_rest_plugin extends enrol_plugin {
                             break;
                         }
                     }
+
                 } else {
                     $username = $user->person->email;
                 }
@@ -169,6 +170,7 @@ class enrol_rest_plugin extends enrol_plugin {
                 if ($username) {
                     if ($automaticusercreation) {
                         $createuser = true;
+
                     } else {
                         $a           = new stdClass;
                         $a->fullname = fullname($fullname);
@@ -185,30 +187,38 @@ class enrol_rest_plugin extends enrol_plugin {
                             // Check if the user exists, but without a DaisyID
                             $withoutdaisy = $DB->get_record('user', array('username' => $username));
 
+                            // Try to add DaisyID if it is missing
                             if ($withoutdaisy) {
                                 // Update the user with a DaisyID
-                                echo get_string('withoutdaisy', 'enrol_rest', (string) $username)."\n";
+                                echo get_string('withoutdaisy', 'enrol_rest', $username)."\n";
 
                                 try {
                                     $DB->update_record('user', array(
                                         'id' => $withoutdaisy->id,
                                         'idnumber' => $user->person->id));
-                                    echo "Successfully added DaisyID \n";
+
+                                    echo get_string('daisyidadded', 'enrol_rest', $username)."\n";
+                                    add_to_log($courseid, 'enrol_rest', 'update_DaisyID', '',
+                                        get_string('daisyidadded', 'enrol_rest', $withoutdaisy->username), '', $withoutdaisy->id);
 
                                 } catch (dml_exception $e) {
-                                    $error = get_string('database_error', 'enrol_rest')."failed to update user "
-                                        .$username." with DaisyID ".$user->person->id."\n";
+                                    $error = get_string('database_error', 'enrol_rest')
+                                        .get_string('daisyidaddfailed', 'enrol_rest', $username)."\n";
+
                                     echo $error;
+                                    add_to_log($courseid, 'enrol_rest', 'update_DaisyID', '',
+                                        get_string('daisyidaddfailed', 'enrol_rest'), '', $withoutdaisy->id);
 
                                     // Add this to the errors array
                                     $errors[] = $error;
 
                                     $createuserfailed = true;
                                 }
+
+                            // Try to create new user
                             } else {
-                                // Try to create new user
                                 try {
-                                    $DB->insert_record('user', array(
+                                    $id = $DB->insert_record('user', array(
                                         'auth'       => 'shibboleth',
                                         'confirmed'  => 1,
                                         'mnethostid' => 1,
@@ -219,10 +229,15 @@ class enrol_rest_plugin extends enrol_plugin {
                                         'email'      => $user->person->email
                                     ));
 
+                                    echo get_string('usercreated', 'enrol_rest', $username)."\n";
+
+                                    add_to_log($courseid, 'enrol_rest', 'create_account', '',
+                                        get_string('usercreated', 'enrol_rest', $username), '', $id);
+
                                 } catch (dml_exception $e) {
-                                    $error = get_string('database_error', 'enrol_rest')."failed to create user "
-                                        .$username."\n";
-                                    $error."User info fetched from Daisy: \n"
+                                    $error = get_string('database_error', 'enrol_rest')
+                                        .get_string('usercreatefailed', 'enrol_rest', $username)."\n"
+                                        .get_string('userinfofetched', 'enrol_rest')."\n"
                                         ."ID: ".$user->person->id."\n"
                                         ."Username: ".$username."\n"
                                         ."Firstname: ".$user->person->firstName."\n"
@@ -233,22 +248,26 @@ class enrol_rest_plugin extends enrol_plugin {
                                     // Add this to the errors array
                                     $errors[] = $error;
 
+                                    add_to_log($courseid, 'enrol_rest', 'create_account', '',
+                                        get_string('usercreatefailed', 'enrol_rest', $username));
+
                                     $createuserfailed = true;
                                 }
                             }
 
                         } else if ($userinmoodle->deleted == 1) {
+                            // Reactivate disabled user
                             $userinmoodle->deleted = 0;
                             $DB->update_record('user', $userinmoodle);
                         }
 
-                        if (!$createuserfailed) {
-                            $userinmoodle = true;
-                            echo get_string('usercreated', 'enrol_rest', (string) $username)."\n";
-                        }
+                        $userinmoodle = (!$createuserfailed ? true : false);
                     }
+
                 } else {
                     echo get_string('usernamenotfound', 'enrol_rest', fullname($fullname))."\n";
+                    add_to_log($courseid, 'enrol_rest', 'enrol_user', '',
+                        get_string('usernamenotfound', 'enrol_rest', fullname($fullname)));
                 }
 
             } else {
@@ -436,8 +455,17 @@ class enrol_rest_plugin extends enrol_plugin {
                 $enrolid  = $this->add_instance($course);
                 $instance = $DB->get_record('enrol', array('id' => $enrolid));
             }
+
             // Enrol the user with this plugin instance
             $this->enrol_user($instance, $user->id, $roleid, $timestart, $timeend);
+
+            $a = new stdClass();
+            $a->user = $user->id;
+            $a->course = $course->id;
+
+            add_to_log($course->id, 'enrol_rest', 'enrol_user', '',
+                get_string('userenroled', 'enrol_rest', $a), '', $user->id);
+
         } else if ($action == 'delete') {
             $instances = $DB->get_records('enrol', array(
                     'enrol'    => 'rest', 
@@ -446,6 +474,13 @@ class enrol_rest_plugin extends enrol_plugin {
             foreach ($instances as $instance) {
                 $this->unenrol_user($instance, $user->id);
             }
+
+            $a = new stdClass();
+            $a->user = $user->id;
+            $a->course = $course->id;
+
+            add_to_log($course->id, 'enrol_rest', 'unenrol_user', '',
+                get_string('userunenroled', 'enrol_rest', $a), '', $user->id);
         }
 
         return true;
