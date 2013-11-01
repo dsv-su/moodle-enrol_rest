@@ -84,9 +84,7 @@ class enrol_rest_plugin extends enrol_plugin {
         // If there's an error-receiver set in the settings
         if ($errorreceiver) {
             $instancename = $CFG->wwwroot;
-            $email = "An error occured while automatically enrolling users on "
-                .$instancename
-                .". The error messages can be seen below: \n";
+            $email = get_string('errormailbody', 'enrol_rest', $instancename)."\n";
             $email .= "<pre>";
 
             foreach ($message as $m) {
@@ -98,11 +96,11 @@ class enrol_rest_plugin extends enrol_plugin {
             $headers = 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
 
             // Send email
-            $sent = mail($errorreceiver, "Errors encountered when doing automatic enrolments on ".$instancename,
+            $sent = mail($errorreceiver, get_string('errormailtitle', 'enrol_rest', $instancename),
                 $email, $headers);
 
             if ($sent) {
-                echo "Error-notifying email sent! \n";
+                echo get_string('errormailsent', 'enrol_rest')."\n";
             }
         }
     }
@@ -187,7 +185,7 @@ class enrol_rest_plugin extends enrol_plugin {
                         $a           = new stdClass;
                         $a->fullname = fullname($fullname);
                         $a->username = $username;
-                        echo get_string("noaccountfound", "enrol_rest", $a)."\n";
+                        echo get_string('noaccountfound', 'enrol_rest', $a).'\n';
                         $createuser = self::ask_stdin_question(get_string('confirmusercreation', 
                                 'enrol_rest', fullname($fullname)));
                     }
