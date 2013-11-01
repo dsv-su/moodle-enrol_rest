@@ -117,6 +117,18 @@ class enrol_rest_plugin extends enrol_plugin {
     }
 
     /**
+     * Private helper method for enrol_list_of_users, tries to create missing email address
+     *
+     * @return string with newly created email
+     */
+    private function try_fix_for_daisy_email($username) {
+        // Extract the pure username
+        $exploded = explode("@", $username);
+
+        return $exploded[0] . "@student.su.se";
+    }
+
+    /**
      * Take a list of students and enrol to the course. Create accounts if not currently existing.
      *
      * @param array $userlist An array of students to enrol to the course.
@@ -217,6 +229,21 @@ class enrol_rest_plugin extends enrol_plugin {
 
                             // Try to create new user
                             } else {
+                                /* Sometimes, Daisy decides that some users shouldn't have email addresses associated with them
+                                   even though Daisy has all the data it needs to add an email address. The creation of a user
+                                   within iLearn2 requires an email address to be supplied, so this right here tries to remedy
+                                   this issue in order not to fail the enrolment */
+                                if ($user->person->email === NULL) {
+                                    // Try to fix!
+                                    $user->person->email = $this->try_fix_for_daisy_email($username);
+
+                                    // Add this to the error's array, and then log it
+                                    $errors[] = get_string('emailtempfix', 'enrol_rest', $username . ', ID:' . $user->person->id);
+
+                                    add_to_log($courseid, 'enrol_reset', 'create_account', '',
+                                        get_string('emailtempfix', 'enrol_rest', $username . ', ID:' . $user->person->id), '', $id);
+                                }
+
                                 try {
                                     $id = $DB->insert_record('user', array(
                                         'auth'       => 'shibboleth',

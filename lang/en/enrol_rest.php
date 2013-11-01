@@ -39,6 +39,7 @@ $string['daisyidadded'] = 'DaisyID added to user {$a}';
 $string['daisyidaddfailed'] = 'Failed to add DaisyID to user {$a}';
 $string['daisydown'] = 'Daisy connection appears to be down/flaky, aborting automatic enrollment!';
 $string['database_error'] = 'Database error: ';
+$string['emailtempfix'] = 'Daisy didn\'t return an email address for user {$a}. Temporary email created';
 $string['emptystudentlist'] = 'No students found for courseid {$a}. Is the courseid incorrect?';
 $string['enrolmentexists'] = 'User {$a} is already enrolled';
 $string['errorreceiver'] = 'Error receiver';
