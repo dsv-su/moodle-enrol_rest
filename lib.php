@@ -192,17 +192,20 @@ class enrol_rest_plugin extends enrol_plugin {
 
             if (!$userinmoodle || $userinmoodle->deleted == 1) {
                 $usernames = $this->curl_request(array($userresource, $user->person->id, 'usernames'));
+                $username = NULL; // declare username (will hopefully be filled in properly later)
 
                 // If a userrealm is set in moodle
                 if ($userrealm) {
                     foreach ($usernames as $usernamerecord) {
                         if (isset($usernamerecord->realm) && $usernamerecord->realm == $userrealm) {
+                            // This is a username for the specified realm (set in settings)! Save it!
                             $username = strtolower($usernamerecord->username.'@'.$usernamerecord->realm);
                             break;
                         }
                     }
 
                 } else {
+                    // Create a new username from the user's email
                     $username = $user->person->email;
                 }
 
