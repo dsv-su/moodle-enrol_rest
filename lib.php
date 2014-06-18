@@ -185,10 +185,14 @@ class enrol_rest_plugin extends enrol_plugin {
             global $DB;
 
             // Check if the user already has an account
-            $userinmoodle        = $DB->get_record('user', array('idnumber' => $user->person->id));
-            $fullname            = new stdClass;
-            $fullname->firstname = $user->person->firstName;
-            $fullname->lastname  = $user->person->lastName;
+            $userinmoodle                = $DB->get_record('user', array('idnumber' => $user->person->id));
+            $fullname                    = new stdClass;
+            $fullname->firstname         = $user->person->firstName;
+            $fullname->firstnamephonetic = "";
+            $fullname->middlename        = "";
+            $fullname->lastname          = $user->person->lastName;
+            $fullname->lastnamephonetic  = "";
+            $fullname->alternatename     = "";
 
             if (!$userinmoodle || $userinmoodle->deleted == 1) {
                 $usernames = $this->curl_request(array($userresource, $user->person->id, 'usernames'));
