@@ -103,7 +103,8 @@ class enrol_rest_plugin extends enrol_plugin {
     }
 
     /**
-     *  Sends an error message to the defined receiver, if one is specified
+     * Sends an email with errors (if errors occured during enrolment), if a receiver is specified in the plugin's settings
+     *
      * @param array $message containing encountered errors
      */
     private function send_error_email($message) {
@@ -181,11 +182,15 @@ class enrol_rest_plugin extends enrol_plugin {
             $coursestart = 0;
         }
 
+        // Loop through users, create accounts if necessary, and finally enrol them in this course
         foreach ($userlist as $user) {
             global $DB;
 
             // Check if the user already has an account
             $userinmoodle                = $DB->get_record('user', array('idnumber' => $user->person->id));
+
+            // Temporarily store user name in a "fake" user object, so that a proper fullname can be generated later on
+            // if we need to create a Moodle user
             $fullname                    = new stdClass;
             $fullname->firstname         = $user->person->firstName;
             $fullname->firstnamephonetic = "";
@@ -194,6 +199,8 @@ class enrol_rest_plugin extends enrol_plugin {
             $fullname->lastnamephonetic  = "";
             $fullname->alternatename     = "";
 
+            // If this student doesn't have a corresponding Moodle user, or if one exists but has been deleted in Moodle,
+            // create a new user account or activate
             if (!$userinmoodle || $userinmoodle->deleted == 1) {
                 $usernames = $this->curl_request(array($userresource, $user->person->id, 'usernames'));
                 $username = NULL; // declare username (will hopefully be filled in properly later)
@@ -230,12 +237,11 @@ class enrol_rest_plugin extends enrol_plugin {
                         $createuserfailed = false;
 
                         if (!$userinmoodle) {
-                            // Check if the user exists, but without a DaisyID
+                            // Check if the user actually exists, but is without a DaisyID
                             $withoutdaisy = $DB->get_record('user', array('username' => $username));
 
-                            // Try to add DaisyID if it is missing
                             if ($withoutdaisy) {
-                                // Update the user with a DaisyID
+                                // Try to add DaisyID to the existing Moodle user
                                 echo get_string('withoutdaisy', 'enrol_rest', $username)."\n";
 
                                 try {
@@ -248,6 +254,7 @@ class enrol_rest_plugin extends enrol_plugin {
                                         get_string('daisyidadded', 'enrol_rest', $withoutdaisy->username), '', $withoutdaisy->id);
 
                                 } catch (dml_exception $e) {
+                                    // Couldn't update existing Moodle user with a daisy ID
                                     $error = get_string('database_error', 'enrol_rest')
                                         .get_string('daisyidaddfailed', 'enrol_rest', $username)."\n";
 
@@ -261,7 +268,7 @@ class enrol_rest_plugin extends enrol_plugin {
                                     $createuserfailed = true;
                                 }
 
-                            // Try to create new user
+                            // A Moodle user doesn't exist for this student, try to create a new one
                             } else {
                                 /* Sometimes, Daisy decides that some users shouldn't have email addresses associated with them
                                    even though Daisy has all the data it needs to add an email address. The creation of a user
@@ -278,6 +285,7 @@ class enrol_rest_plugin extends enrol_plugin {
                                         get_string('emailtempfix', 'enrol_rest', $username . ', ID:' . $user->person->id), '', $id);
                                 }
 
+                                // Create the new user
                                 try {
                                     $id = $DB->insert_record('user', array(
                                         'auth'       => 'shibboleth',
@@ -296,6 +304,7 @@ class enrol_rest_plugin extends enrol_plugin {
                                         get_string('usercreated', 'enrol_rest', $username), '', $id);
 
                                 } catch (dml_exception $e) {
+                                    // If an error occurs when creating the user, make sure to log it thoroughly
                                     $error = get_string('database_error', 'enrol_rest')
                                         .get_string('usercreatefailed', 'enrol_rest', $username)."\n"
                                         .get_string('userinfofetched', 'enrol_rest')."\n"
@@ -317,7 +326,7 @@ class enrol_rest_plugin extends enrol_plugin {
                             }
 
                         } else if ($userinmoodle->deleted == 1) {
-                            // Reactivate disabled user
+                            // Reactivate disabled user so that we can enrol him/her
                             $userinmoodle->deleted = 0;
                             $DB->update_record('user', $userinmoodle);
                         }
@@ -335,6 +344,7 @@ class enrol_rest_plugin extends enrol_plugin {
                 echo get_string('userexists', 'enrol_rest', fullname($fullname))."\n";
             }
 
+            // If this student already has a Moodle user for it, then either automatically enrol or ask whether to enrol
             if ($userinmoodle) {
                 $moodleuser    = $DB->get_record('user', array('idnumber' => $user->person->id));
                 $coursecontext = context_course::instance($course->id);
@@ -397,7 +407,7 @@ class enrol_rest_plugin extends enrol_plugin {
     }
 
     /**
-     * A method that takes an two arrays, one source array and one array that contains keys from the first array.
+     * A method that takes two arrays, one source array and one array that contains keys from the first array.
      * The method will pick the elements specified by the keys in the secound array and return a new array that 
      * only contains those keys.
      *
@@ -465,6 +475,7 @@ class enrol_rest_plugin extends enrol_plugin {
                             $studentdict[$student->person->id] = $student;
                         }
 
+                        // Select the idnumers of students already enrolled to this course
                         $coursecontext = context_course::instance($course->id);
                         $enrolledusers = $DB->get_records_sql('SELECT u.idnumber FROM {user_enrolments} ue '.
                                                               'JOIN {user} u ON u.id = ue.userid '.
@@ -472,15 +483,17 @@ class enrol_rest_plugin extends enrol_plugin {
                                                               'WHERE e.enrol = ? '.
                                                               'AND e.courseid = ?', array('rest', $course->id));
 
+                        // Determine what users to enrol, then try to enrol them
                         $userstoenroll = array_diff(array_keys($studentdict), array_keys($enrolledusers));
                         $errors = $this->enrol_list_of_users(self::pick_elements_from_array($studentdict, $userstoenroll), $course, $courseid);
 
+                        // Determine what users to unenrol, then try to unenrol them
                         $userstounenroll = array_diff(array_keys($enrolledusers), array_keys($studentdict));
                         $this->unenrol_list_of_users(self::pick_elements_from_array($enrolledusers, $userstounenroll), $course);
 
-                        // If any errors has occured, send emails!
+                        // If any errors occured during enrolment, send email!
                         if (!empty($errors)) {
-                        	$this->send_error_email($errors);
+                            $this->send_error_email($errors);
                         }
                     }
                 }
