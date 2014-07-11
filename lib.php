@@ -300,8 +300,7 @@ class enrol_rest_plugin extends enrol_plugin {
 
                                     echo get_string('usercreated', 'enrol_rest', $username)."\n";
 
-                                    add_to_log($courseid, 'enrol_rest', 'create_account', '',
-                                        get_string('usercreated', 'enrol_rest', $username), '', $id);
+                                    \core\event\user_created::create_from_userid($id)->trigger();
 
                                 } catch (dml_exception $e) {
                                     // If an error occurs when creating the user, make sure to log it thoroughly
@@ -516,7 +515,7 @@ class enrol_rest_plugin extends enrol_plugin {
         global $CFG, $DB;
 
         // Create/resurrect a context object
-        $context = get_context_instance(CONTEXT_COURSE, $course->id);
+        $context = context_course::instance($course->id);
 
         if ($action == 'add') {
             $instance = $DB->get_record('enrol', array(
@@ -533,13 +532,6 @@ class enrol_rest_plugin extends enrol_plugin {
             // Enrol the user with this plugin instance
             $this->enrol_user($instance, $user->id, $roleid, $timestart, $timeend);
 
-            $a = new stdClass();
-            $a->user = $user->id;
-            $a->course = $course->id;
-
-            add_to_log($course->id, 'enrol_rest', 'enrol_user', '',
-                get_string('userenroled', 'enrol_rest', $a), '', $user->id);
-
         } else if ($action == 'delete') {
             $instances = $DB->get_records('enrol', array(
                     'enrol'    => 'rest', 
@@ -548,13 +540,6 @@ class enrol_rest_plugin extends enrol_plugin {
             foreach ($instances as $instance) {
                 $this->unenrol_user($instance, $user->id);
             }
-
-            $a = new stdClass();
-            $a->user = $user->id;
-            $a->course = $course->id;
-
-            add_to_log($course->id, 'enrol_rest', 'unenrol_user', '',
-                get_string('userunenroled', 'enrol_rest', $a), '', $user->id);
         }
 
         return true;
