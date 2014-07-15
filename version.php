@@ -26,8 +26,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2013112000;        // The current plugin version (Date: YYYYMMDDXX)
-$plugin->requires  = 2012062500;        // Requires this Moodle version
+$plugin->version   = 2013062600;        // The current plugin version (Date: YYYYMMDDXX)
+$plugin->requires  = 2013111800;        // Requires this Moodle version
 $plugin->component = 'enrol_rest';      // Full name of the plugin (used for diagnostics)
 $plugin->cron      = 60;
 
