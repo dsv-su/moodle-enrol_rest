@@ -17,7 +17,6 @@
 /**
  * REST enrolment plugin version specification.
  *
- *
  * @package enrol_rest
  * @copyright 2012 Department of Computer and System Sciences,
  *         Stockholm University {@link http://dsv.su.se}
@@ -26,8 +25,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2013112000;        // The current plugin version (Date: YYYYMMDDXX)
-$plugin->requires  = 2012062500;        // Requires this Moodle version
+$plugin->version   = 2014071500;        // The current plugin version (Date: YYYYMMDDXX)
+$plugin->requires  = 2014050800;        // Requires this Moodle version
 $plugin->component = 'enrol_rest';      // Full name of the plugin (used for diagnostics)
 $plugin->cron      = 60;
 

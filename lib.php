@@ -244,14 +244,23 @@ class enrol_rest_plugin extends enrol_plugin {
                                 // Try to add DaisyID to the existing Moodle user
                                 echo get_string('withoutdaisy', 'enrol_rest', $username)."\n";
 
+                                $params = array(
+                                    'context' => context_user::instance($withoutdaisy->id),
+                                    'objectid' => $withoutdaisy->id,
+                                    'other' => array(
+                                        'enrol' => 'rest'
+                                    )
+                                );
+
                                 try {
                                     $DB->update_record('user', array(
                                         'id' => $withoutdaisy->id,
                                         'idnumber' => $user->person->id));
 
                                     echo get_string('daisyidadded', 'enrol_rest', $username)."\n";
-                                    add_to_log($courseid, 'enrol_rest', 'update_DaisyID', '',
-                                        get_string('daisyidadded', 'enrol_rest', $withoutdaisy->username), '', $withoutdaisy->id);
+
+                                    // Log that daisy id is added.
+                                    \enrol_rest\event\daisyid_added::create($params)->trigger();
 
                                 } catch (dml_exception $e) {
                                     // Couldn't update existing Moodle user with a daisy ID
@@ -259,8 +268,9 @@ class enrol_rest_plugin extends enrol_plugin {
                                         .get_string('daisyidaddfailed', 'enrol_rest', $username)."\n";
 
                                     echo $error;
-                                    add_to_log($courseid, 'enrol_rest', 'update_DaisyID', '',
-                                        get_string('daisyidaddfailed', 'enrol_rest'), '', $withoutdaisy->id);
+
+                                    // Log that daisy failed to be added.
+                                    \enrol_rest\event\daisyid_add_failed::create($params)->trigger();
 
                                     // Add this to the errors array
                                     $errors[] = $error;
@@ -274,15 +284,16 @@ class enrol_rest_plugin extends enrol_plugin {
                                    even though Daisy has all the data it needs to add an email address. The creation of a user
                                    within iLearn2 requires an email address to be supplied, so this right here tries to remedy
                                    this issue in order not to fail the enrolment */
+
+                                $emailmissing = false;
+
                                 if ($user->person->email === NULL) {
+                                    $emailmissing = true;
                                     // Try to fix!
                                     $user->person->email = $this->try_fix_for_daisy_email($username);
 
                                     // Add this to the error's array, and then log it
                                     $errors[] = get_string('emailtempfix', 'enrol_rest', $username . ', ID:' . $user->person->id);
-
-                                    add_to_log($courseid, 'enrol_reset', 'create_account', '',
-                                        get_string('emailtempfix', 'enrol_rest', $username . ', ID:' . $user->person->id), '', $id);
                                 }
 
                                 // Create the new user
@@ -300,7 +311,21 @@ class enrol_rest_plugin extends enrol_plugin {
 
                                     echo get_string('usercreated', 'enrol_rest', $username)."\n";
 
+                                    // Log that user is created.
                                     \core\event\user_created::create_from_userid($id)->trigger();
+
+                                    if ($emailmissing) {
+                                        $params = array(
+                                            'context' => context_user::instance($id),
+                                            'objectid' => $id,
+                                            'other' => array(
+                                                'enrol' => 'rest'
+                                            )
+                                        );
+
+                                        // Log that email if created out of username
+                                        \enrol_rest\event\email_fixed::create($params)->trigger();
+                                    }
 
                                 } catch (dml_exception $e) {
                                     // If an error occurs when creating the user, make sure to log it thoroughly
@@ -317,9 +342,6 @@ class enrol_rest_plugin extends enrol_plugin {
                                     // Add this to the errors array
                                     $errors[] = $error;
 
-                                    add_to_log($courseid, 'enrol_rest', 'create_account', '',
-                                        get_string('usercreatefailed', 'enrol_rest', $username));
-
                                     $createuserfailed = true;
                                 }
                             }
@@ -335,8 +357,17 @@ class enrol_rest_plugin extends enrol_plugin {
 
                 } else {
                     echo get_string('usernamenotfound', 'enrol_rest', fullname($fullname))."\n";
-                    add_to_log($courseid, 'enrol_rest', 'enrol_user', '',
-                        get_string('usernamenotfound', 'enrol_rest', fullname($fullname)));
+
+                    $params = array(
+                        'context' => context_system::instance(),
+                        'other' => array(
+                            'enrol' => 'rest',
+                            'daisyid' => $user->person->id
+                        )
+                    );
+
+                    // Log that username was not found.
+                    \enrol_rest\event\username_not_found::create($params)->trigger();
                 }
 
             } else {
