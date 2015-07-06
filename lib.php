@@ -170,17 +170,19 @@ class enrol_rest_plugin extends enrol_plugin {
         $courseresource        = $this->get_config('courseresource');
         $userrealm             = $this->get_config('userrealm');
         $userresource          = $this->get_config('userresource');
+        $coursestart = 0;
 
-        $courseinformation = $this->curl_request(array($courseresource, $courseid));
+        if (strpos($courseid, 'program') === false) {
+            $courseinformation = $this->curl_request(array($courseresource, $courseid));
+            if (isset($courseinformation->startDate)) {
+                $coursestart = strtotime($courseinformation->startDate);
+            } else {
+                $coursestart = 0;
+            }
+        }
 
         // This list keeps track of any errors that might arise during the enrollment
         $errors = array();
-
-        if (isset($courseinformation->startDate)) {
-            $coursestart = strtotime($courseinformation->startDate);
-        } else {
-            $coursestart = 0;
-        }
 
         // Loop through users, create accounts if necessary, and finally enrol them in this course
         foreach ($userlist as $user) {
@@ -487,8 +489,14 @@ class enrol_rest_plugin extends enrol_plugin {
                 if ($enroltocourse) {
                     $courseids = preg_split('/,/', $course->idnumber);
                     foreach($courseids as $courseid) {
-                        $courseid          = trim($courseid);
-                        $studentlist       = $this->curl_request(array($courseresource, $courseid, 'participants'));
+                        $courseid           = trim($courseid);
+                        $programid          = '';
+                        if (strpos($courseid, 'program') !== false) {
+                            $programid = explode("_", $courseid)[1];
+                            $studentlist = $this->curl_request(array('program', $programid, 'admissions?includeDiscontinued=false'));
+                        } else {
+                            $studentlist = $this->curl_request(array($courseresource, $courseid, 'participants'));
+                        }
 
                         if (empty($studentlist)) {
                             echo get_string('emptystudentlist', 'enrol_rest', $courseid)."\n";
@@ -502,6 +510,17 @@ class enrol_rest_plugin extends enrol_plugin {
                         $studentdict = array();
 
                         foreach ($studentlist as $student) {
+                            // Depending on courseIDtype take a studentid differently
+                            if ($programid) {
+                                $degrees = $this->curl_request(array('student', $student->studentId, 'degrees'));
+                                foreach ($degrees as $keydegree => $degree) {
+                                    if (isset($degree->programId) && ($degree->programId == $programid)) {
+                                            echo "Skipping person $student->studentId because of degree\n\r";
+                                            continue 2;
+                                    }
+                                }
+                                $student->person = $this->curl_request(array('person', $student->studentId));
+                            }
                             $studentdict[$student->person->id] = $student;
                         }
 

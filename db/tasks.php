@@ -15,18 +15,24 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * REST enrolment plugin version specification.
+ * Definition of IMS Enterprise enrolment scheduled tasks.
  *
- * @package enrol_rest
- * @copyright 2012 Department of Computer and System Sciences,
- *         Stockholm University {@link http://dsv.su.se}
- * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package   enrol_rest
+ * @category  task
+ * @copyright 2015 Stockholm University
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2015070601;        // The current plugin version (Date: YYYYMMDDXX)
-$plugin->requires  = 2014050800;        // Requires this Moodle version
-$plugin->component = 'enrol_rest';      // Full name of the plugin (used for diagnostics)
-$plugin->cron      = 60;
-
+$tasks = array(
+    array(
+        'classname' => 'enrol_rest\task\cron_task',
+        'blocking' => 0,
+        'minute' => '10',
+        'hour' => '*',
+        'day' => '*',
+        'month' => '*',
+        'dayofweek' => '*'
+    )
+);
