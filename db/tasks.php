@@ -29,7 +29,7 @@ $tasks = array(
     array(
         'classname' => 'enrol_rest\task\cron_task',
         'blocking' => 0,
-        'minute' => '10',
+        'minute' => '*/10',
         'hour' => '*',
         'day' => '*',
         'month' => '*',
