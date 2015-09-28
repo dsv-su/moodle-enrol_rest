@@ -493,7 +493,7 @@ class enrol_rest_plugin extends enrol_plugin {
                         $programid          = '';
                         if (strpos($courseid, 'program') !== false) {
                             $programid = explode("_", $courseid)[1];
-                            $studentlist = $this->curl_request(array('program', $programid, 'admissions?includeDiscontinued=false'));
+                            $studentlist = $this->get_program_admissions($programid, true);
                         } else {
                             $studentlist = $this->curl_request(array($courseresource, $courseid, 'participants'));
                         }
@@ -510,17 +510,6 @@ class enrol_rest_plugin extends enrol_plugin {
                         $studentdict = array();
 
                         foreach ($studentlist as $student) {
-                            // Depending on courseIDtype take a studentid differently
-                            if ($programid) {
-                                $degrees = $this->curl_request(array('student', $student->studentId, 'degrees'));
-                                foreach ($degrees as $keydegree => $degree) {
-                                    if (isset($degree->programId) && ($degree->programId == $programid)) {
-                                            echo "Skipping person $student->studentId because of degree\n\r";
-                                            continue 2;
-                                    }
-                                }
-                                $student->person = $this->curl_request(array('person', $student->studentId));
-                            }
                             $studentdict[$student->person->id] = $student;
                         }
 
@@ -593,5 +582,34 @@ class enrol_rest_plugin extends enrol_plugin {
         }
 
         return true;
+    }
+
+    private function get_program_admissions($programid, $onlyregistered = false, $startingterm = 20132) {
+        $sl = $this->curl_request(array('program', $programid, 'admissions?includeDiscontinued=false'));
+        if ($onlyregistered) {
+            foreach ($sl as $key => $student) {
+                $degrees = $this->curl_request(array('student', $student->studentId, 'degrees'));
+                foreach ($degrees as $keydegree => $degree) {
+                    if (isset($degree->programId) && ($degree->programId == $programid)) {
+                        echo "Skipping person $student->studentId because of degree\n\r";
+                        unset($sl[$key]);
+                    }
+                }
+                $courseregistrations = $this->curl_request(array('student', $student->studentId, 'courseRegistrations'));
+                $registeredtoacourse = false;
+                //var_dump($courseregistrations);
+                foreach ($courseregistrations as $courseregistration) {
+                    if (isset($courseregistration->programId) && $courseregistration->programId == $programid && ($courseregistration->semester>= $startingterm)) {
+                        $registeredtoacourse = true;
+                    }
+                }
+                if (!$registeredtoacourse) {
+                    echo "Skipping person $student->studentId because of no course registration\n\r";
+                    unset($sl[$key]);
+                }
+                $student->person = $this->curl_request(array('person', $student->studentId));
+            }
+        }
+        return $sl;
     }
 }
