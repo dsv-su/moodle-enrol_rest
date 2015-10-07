@@ -34,6 +34,8 @@ $string['confirmenrolmenttocourse'] = 'Do you want to enrol/unenrol students to 
 $string['confirmenrolment'] = 'Do you want to enrol {$a->username} to {$a->coursename} from {$a->coursestart}';
 $string['confirmunenrolment'] = 'Do you want to unenrol {$a->username} from {$a->coursename}';
 $string['confirmusercreation'] = 'Do you want to create an account for {$a}';
+$string['confirmunsubscribe'] = '<b style="color:red;">Are you sure that you want to unsubscribe from the \'Program {$a}\'?</b><p>If you unsubscribe, you will not get email updates with important information from your Programme coordinator or the Administration of studies.</p>
+<p>If you choose to unsubscribe from the \'Program {$a}\', it is necessary for your studies that you check this forum on a regular basis.</p>';
 $string['courseresource'] = 'Course information resource';
 $string['daisyidadded'] = 'DaisyID added to user {$a}';
 $string['daisyidaddfailed'] = 'Failed to add DaisyID to user {$a}';
