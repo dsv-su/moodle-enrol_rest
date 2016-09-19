@@ -25,7 +25,7 @@
 namespace enrol_rest\task;
 
 /**
- * Simple task to run the REST enrolment cron.
+ * Simple task to run the REST enrolment job.
  **/
 
 class cron_task extends \core\task\scheduled_task {      
@@ -47,7 +47,7 @@ class cron_task extends \core\task\scheduled_task {
         global $CFG;
         require_once($CFG->dirroot . '/enrol/rest/lib.php');
         $rest = new \enrol_rest_plugin();
-        $rest->cron();
+        $rest->process_courses();
     }
 
 }

@@ -462,7 +462,7 @@ class enrol_rest_plugin extends enrol_plugin {
      * Will iterate through all courses and fetch student lists for all courses that have an id-number.
      * All students will be enrolled to the course (depending on the settings).
      */
-    public function cron() {
+    public function process_courses() {
         global $CFG, $DB;
         $sapiname                   = php_sapi_name();
         $manualenrolmentenvironment = getenv('MANUALENROLMENT');
