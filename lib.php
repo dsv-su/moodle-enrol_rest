@@ -164,22 +164,12 @@ class enrol_rest_plugin extends enrol_plugin {
      *
      * @return array containing any generated error messages
      */
-    private function enrol_list_of_users($userlist, $course, $courseid) {
+    private function enrol_list_of_users($userlist, $course, $courseid, $coursestart) {
         $automaticenrolment    = $this->get_config('automaticenrolment');
         $automaticusercreation = $this->get_config('automaticusercreation');
         $courseresource        = $this->get_config('courseresource');
         $userrealm             = $this->get_config('userrealm');
         $userresource          = $this->get_config('userresource');
-        $coursestart = 0;
-
-        if (strpos($courseid, 'program') === false) {
-            $courseinformation = $this->curl_request(array($courseresource, $courseid));
-            if (isset($courseinformation->startDate)) {
-                $coursestart = strtotime($courseinformation->startDate);
-            } else {
-                $coursestart = 0;
-            }
-        }
 
         // This list keeps track of any errors that might arise during the enrollment
         $errors = array();
@@ -406,12 +396,12 @@ class enrol_rest_plugin extends enrol_plugin {
      * @param array $userlist The array of users.
      * @param stdClass $course The course to unenrol from.
      */
-    private function unenrol_list_of_users($userlist, $course) {
+    private function unenrol_list_of_users($userlist, $course, $coursestart) {
         global $DB;
         $manualenrolmentenvironment = getenv('MANUALENROLMENT');
         $automaticunenrolment = $this->get_config('automaticunenrolment');
 
-        if (!$manualenrolmentenvironment && $automaticunenrolment) {
+        if (!$manualenrolmentenvironment && ($automaticunenrolment || (time() < $coursestart))) {
             // Unenroll students automatically
             $userstounenrol = $DB->get_records_list('user', 'idnumber', array_keys($userlist));
 
@@ -491,11 +481,19 @@ class enrol_rest_plugin extends enrol_plugin {
                     foreach($courseids as $courseid) {
                         $courseid           = trim($courseid);
                         $programid          = '';
+                        $coursestart        = 0;
+
                         if (strpos($courseid, 'program') !== false) {
                             $programid = explode("_", $courseid)[1];
                             $studentlist = $this->get_program_admissions($programid, true);
-                        } else {
+                        } else if (is_numeric($courseid)) {
                             $studentlist = $this->curl_request(array($courseresource, $courseid, 'participants'));
+                            $courseinformation = $this->curl_request(array($courseresource, $courseid));
+                            if (isset($courseinformation->startDate)) {
+                                $coursestart = strtotime($courseinformation->startDate);
+                            } else {
+                                $coursestart = 0;
+                            }
                         }
 
                         if (empty($studentlist)) {
@@ -504,6 +502,7 @@ class enrol_rest_plugin extends enrol_plugin {
 
                         } else if ($studentlist === false) {
                             echo get_string('daisydown', 'enrol_rest')."\n";
+                            $this->send_error_email(get_string('daisydown', 'enrol_rest')."\n");
                             die();
                         }
 
@@ -523,11 +522,13 @@ class enrol_rest_plugin extends enrol_plugin {
 
                         // Determine what users to enrol, then try to enrol them
                         $userstoenroll = array_diff(array_keys($studentdict), array_keys($enrolledusers));
-                        $errors = $this->enrol_list_of_users(self::pick_elements_from_array($studentdict, $userstoenroll), $course, $courseid);
+                        $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
+                            $studentdict, $userstoenroll), $course, $courseid, $coursestart);
 
                         // Determine what users to unenrol, then try to unenrol them
                         $userstounenroll = array_diff(array_keys($enrolledusers), array_keys($studentdict));
-                        $this->unenrol_list_of_users(self::pick_elements_from_array($enrolledusers, $userstounenroll), $course);
+                        $this->unenrol_list_of_users(self::pick_elements_from_array(
+                            $enrolledusers, $userstounenroll), $course, $coursestart);
 
                         // If any errors occured during enrolment, send email!
                         if (!empty($errors)) {
