@@ -513,9 +513,10 @@ class enrol_rest_plugin extends enrol_plugin {
                         // Students who have 'break' for a course.
                         $studentbreak = array();
                         foreach ($studentlist as $student) {
-                            $studentdict[$student->person->id] = $student;
-                            if ($student->break == true) {
+                            if ($student->break === true) {
                                 $studentbreak[$student->person->id] = $student;
+                            } else {
+                                $studentdict[$student->person->id] = $student;
                             }
                         }
 
