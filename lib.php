@@ -394,14 +394,17 @@ class enrol_rest_plugin extends enrol_plugin {
      * Take a list of students and unenrol from the course.
      *
      * @param array $userlist The array of users.
+     * @param obj $course The course object.
+     * @param int $coursestart The coursestart datetime.
+     * @param boolean $break True if userlist consists of students with breaks, that we need to unenroll.
      * @param stdClass $course The course to unenrol from.
      */
-    private function unenrol_list_of_users($userlist, $course, $coursestart) {
+    private function unenrol_list_of_users($userlist, $course, $coursestart, $break = false) {
         global $DB;
         $manualenrolmentenvironment = getenv('MANUALENROLMENT');
         $automaticunenrolment = $this->get_config('automaticunenrolment');
 
-        if (!$manualenrolmentenvironment && ($automaticunenrolment || (time() < $coursestart))) {
+        if (!$manualenrolmentenvironment && ($automaticunenrolment || (time() < $coursestart) || $break)) {
             // Unenroll students automatically
             $userstounenrol = $DB->get_records_list('user', 'idnumber', array_keys($userlist));
 
@@ -507,9 +510,13 @@ class enrol_rest_plugin extends enrol_plugin {
                         }
 
                         $studentdict = array();
-
+                        // Students who have 'break' for a course.
+                        $studentbreak = array();
                         foreach ($studentlist as $student) {
                             $studentdict[$student->person->id] = $student;
+                            if ($student->break == true) {
+                                $studentbreak[$student->person->id] = $student;
+                            }
                         }
 
                         // Select the idnumers of students already enrolled to this course
@@ -529,6 +536,11 @@ class enrol_rest_plugin extends enrol_plugin {
                         $userstounenroll = array_diff(array_keys($enrolledusers), array_keys($studentdict));
                         $this->unenrol_list_of_users(self::pick_elements_from_array(
                             $enrolledusers, $userstounenroll), $course, $coursestart);
+
+                        // Determine users with 'break' attribute enrolled to the courses
+                        $userstobreak = array_intersect(array_keys($studentbreak), array_keys($enrolledusers));
+                        $this->unenrol_list_of_users(self::pick_elements_from_array(
+                            $enrolledusers, $userstobreak), $course, $coursestart, true);
 
                         // If any errors occured during enrolment, send email!
                         if (!empty($errors)) {
