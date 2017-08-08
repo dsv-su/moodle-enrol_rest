@@ -27,10 +27,19 @@ defined('MOODLE_INTERNAL') || die();
 
 $tasks = array(
     array(
-        'classname' => 'enrol_rest\task\cron_task',
+        'classname' => 'enrol_rest\task\course_task',
         'blocking' => 0,
-        'minute' => '*/30',
+        'minute' => '*/15',
         'hour' => '*',
+        'day' => '*',
+        'month' => '*',
+        'dayofweek' => '*'
+    ),
+     array(
+        'classname' => 'enrol_rest\task\program_task',
+        'blocking' => 0,
+        'minute' => '30',
+        'hour' => '3',
         'day' => '*',
         'month' => '*',
         'dayofweek' => '*'

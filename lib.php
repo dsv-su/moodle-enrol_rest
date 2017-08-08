@@ -460,7 +460,7 @@ class enrol_rest_plugin extends enrol_plugin {
      * Will iterate through all courses and fetch student lists for all courses that have an id-number.
      * All students will be enrolled to the course (depending on the settings).
      */
-    public function process_courses() {
+    public function process_courses($coursefilter = 'all') {
         global $CFG, $DB;
         $sapiname                   = php_sapi_name();
         $manualenrolmentenvironment = getenv('MANUALENROLMENT');
@@ -493,10 +493,10 @@ class enrol_rest_plugin extends enrol_plugin {
                         $programid          = '';
                         $coursestart        = 0;
 
-                        if (strpos($courseid, 'program') !== false) {
+                        if ((strpos($courseid, 'program') !== false) && ($coursefilter == 'program')) {
                             $programid = explode("_", $courseid)[1];
                             $studentlist = $this->get_program_admissions($programid, true);
-                        } else if (is_numeric($courseid)) {
+                        } else if (is_numeric($courseid) && $coursefilter == 'course') {
                             $studentlist = $this->curl_request(array($courseresource, $courseid, 'participants'));
                             $courseinformation = $this->curl_request(array($courseresource, $courseid));
                             if (isset($courseinformation->startDate)) {

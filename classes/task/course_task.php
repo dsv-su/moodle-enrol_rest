@@ -28,7 +28,7 @@ namespace enrol_rest\task;
  * Simple task to run the REST enrolment job.
  **/
 
-class cron_task extends \core\task\scheduled_task {      
+class course_task extends \core\task\scheduled_task {      
 
     /**
      * Get a descriptive name for this task (shown to admins).
@@ -36,7 +36,7 @@ class cron_task extends \core\task\scheduled_task {
      * @return string
      */
     public function get_name() {
-        return get_string('pluginname', 'enrol_rest');
+        return get_string('taskname_course', 'enrol_rest');
     }
 
     /**
@@ -47,7 +47,7 @@ class cron_task extends \core\task\scheduled_task {
         global $CFG;
         require_once($CFG->dirroot . '/enrol/rest/lib.php');
         $rest = new \enrol_rest_plugin();
-        $rest->process_courses();
+        $rest->process_courses('course');
     }
 
 }
