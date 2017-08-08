@@ -409,7 +409,11 @@ class enrol_rest_plugin extends enrol_plugin {
             $userstounenrol = $DB->get_records_list('user', 'idnumber', array_keys($userlist));
 
             foreach ($userstounenrol as $user) {
+                $a = new stdClass;
+                $a->user = fullname($user);
+                $a->course = $course->fullname;
                 $this->process_records('delete', 0, $user, $course, 0, 0);
+                echo get_string('userunenroled', 'enrol_rest', $a)."\n";
             }
 
         } else if ($manualenrolmentenvironment) {
@@ -418,14 +422,15 @@ class enrol_rest_plugin extends enrol_plugin {
 
             foreach ($userstounenrol as $user) {
                 $a = new stdClass;
-                $a->username = fullname($user);
-                $a->coursename = $course->fullname;
+                $a->user = fullname($user);
+                $a->course = $course->fullname;
 
                 // Ask user if this student is to be unenrolled
                 $unenrolfromcourse = self::ask_stdin_question(get_string('confirmunenrolment', 'enrol_rest', $a));
 
                 if ($unenrolfromcourse) {
                     $this->process_records('delete', 0, $user, $course, 0, 0);
+                    echo get_string('userunenroled', 'enrol_rest', $a)."\n";
                 }
             }
         }
@@ -480,7 +485,9 @@ class enrol_rest_plugin extends enrol_plugin {
                 }
 
                 if ($enroltocourse) {
+                    $maxcoursestart = 0;
                     $courseids = preg_split('/,/', $course->idnumber);
+                    $studentdict = array();
                     foreach($courseids as $courseid) {
                         $courseid           = trim($courseid);
                         $programid          = '';
@@ -497,6 +504,8 @@ class enrol_rest_plugin extends enrol_plugin {
                             } else {
                                 $coursestart = 0;
                             }
+                        } else {
+                            continue;
                         }
 
                         if (empty($studentlist)) {
@@ -509,19 +518,21 @@ class enrol_rest_plugin extends enrol_plugin {
                             die();
                         }
 
-                        $studentdict = array();
                         // Students who have 'break' for a course.
                         $studentbreak = array();
                         foreach ($studentlist as $student) {
-                            if ($student->break === true) {
+                            if (isset($student->break) && $student->break === true) {
                                 $studentbreak[$student->person->id] = $student;
                             } else {
                                 $studentdict[$student->person->id] = $student;
                             }
                         }
 
+                        if ($coursestart > $maxcoursestart) {
+                            $maxcoursestart = $coursestart;
+                        }
+
                         // Select the idnumers of students already enrolled to this course
-                        $coursecontext = context_course::instance($course->id);
                         $enrolledusers = $DB->get_records_sql('SELECT u.idnumber FROM {user_enrolments} ue '.
                                                               'JOIN {user} u ON u.id = ue.userid '.
                                                               'JOIN {enrol} e ON ue.enrolid = e.id '.
@@ -533,11 +544,6 @@ class enrol_rest_plugin extends enrol_plugin {
                         $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
                             $studentdict, $userstoenroll), $course, $courseid, $coursestart);
 
-                        // Determine what users to unenrol, then try to unenrol them
-                        $userstounenroll = array_diff(array_keys($enrolledusers), array_keys($studentdict));
-                        $this->unenrol_list_of_users(self::pick_elements_from_array(
-                            $enrolledusers, $userstounenroll), $course, $coursestart);
-
                         // Determine users with 'break' attribute enrolled to the courses
                         $userstobreak = array_intersect(array_keys($studentbreak), array_keys($enrolledusers));
                         $this->unenrol_list_of_users(self::pick_elements_from_array(
@@ -548,6 +554,27 @@ class enrol_rest_plugin extends enrol_plugin {
                             $this->send_error_email($errors);
                         }
                     }
+
+                    if ($this->get_config('automaticunenrolment')) {
+                        // If autoenrolment is turned on, we grab all students for possible unenrolment.
+                        $enrolmentdatebound = 0;
+                    } else {
+                        // Set an enrolment bound to 1 week earlier than maximum course start date.
+                        // This is done so we don't unenrol old students from past course runs.
+                        // The idea is that if a course has multiple daisy instances, they might have different course start dates. One week is for safety.
+                        $enrolmentdatebound = strtotime('-1 week', $maxcoursestart);
+                    }
+                    // Select the idnumers of students already enrolled to this course (recently in case of no autounenrolment).
+                    $recentlyenrolledusers = $DB->get_records_sql('SELECT u.idnumber FROM {user_enrolments} ue '.
+                                                              'JOIN {user} u ON u.id = ue.userid '.
+                                                              'JOIN {enrol} e ON ue.enrolid = e.id '.
+                                                              'WHERE e.enrol = ? '.
+                                                              'AND ue.timestart >= ? '.
+                                                              'AND e.courseid = ?', array('rest', $enrolmentdatebound, $course->id));
+                    // Determine what users to unenrol, then try to unenrol them
+                    $userstounenroll = array_diff(array_keys($recentlyenrolledusers), array_keys($studentdict));
+                    $this->unenrol_list_of_users(self::pick_elements_from_array(
+                            $recentlyenrolledusers, $userstounenroll), $course, $maxcoursestart);
                 }
             }
         }
