@@ -57,6 +57,7 @@ $string['noaccountfound'] = 'No account found for {$a->fullname} ({$a->username}
 $string['pluginname'] = 'REST enrolment';
 $string['pluginname_desc'] = 'REST enrolment allows users to be fetched from an external source via a RESTful API. Users can either be enrolled automatically using cron or interactivley by invocing cron through cli.';
 $string['restapiurl'] = 'Rest API URL';
+$string['rest:manage'] = 'Manage user enrolments';
 $string['rest:unenrol'] = 'Manually unenroll automatically enrolled students';
 $string['servererror'] = 'Unexpected server reply. The server replied with http code {$a->httpcode} requesting {$a->path}.';
 $string['taskname_course'] = 'REST enrolment for courses';
