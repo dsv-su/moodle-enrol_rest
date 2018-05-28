@@ -411,6 +411,7 @@ class enrol_rest_plugin extends enrol_plugin {
             foreach ($userstounenrol as $user) {
                 $a = new stdClass;
                 $a->user = fullname($user);
+                $a->idnumber = $user->idnumber;
                 $a->course = $course->fullname;
                 $this->process_records('delete', 0, $user, $course, 0, 0);
                 echo get_string('userunenroled', 'enrol_rest', $a)."\n";
@@ -518,13 +519,25 @@ class enrol_rest_plugin extends enrol_plugin {
                             die();
                         }
 
-                        // Students who have 'break' for a course.
+                        // Students who have 'break' for a course or 'discontinued' for a program.
                         $studentbreak = array();
-                        foreach ($studentlist as $student) {
-                            if (isset($student->break) && $student->break === true) {
-                                $studentbreak[$student->person->id] = $student;
-                            } else {
-                                $studentdict[$student->person->id] = $student;
+                        if ((strpos($courseid, 'program') !== false) && ($coursefilter == 'program')) {
+                            // Program case
+                            foreach ($studentlist as $admission) {
+                                if (isset($admission->discontinued) && $admission->discontinued === true) {
+                                    $studentbreak[$admission->studentId] = $admission;
+                                } else {
+                                    $studentdict[$admission->studentId] = $admission;
+                                }
+                            }
+                        } else {
+                            // Course case
+                            foreach ($studentlist as $student) {
+                                if (isset($student->break) && $student->break === true) {
+                                    $studentbreak[$student->person->id] = $student;
+                                } else {
+                                    $studentdict[$student->person->id] = $student;
+                                }
                             }
                         }
 
@@ -626,7 +639,7 @@ class enrol_rest_plugin extends enrol_plugin {
     }
 
     private function get_program_admissions($programid, $onlyregistered = false, $startingterm = 20132) {
-        $sl = $this->curl_request(array('program', $programid, 'admissions?includeDiscontinued=false'));
+        $sl = $this->curl_request(array('program', $programid, 'admissions'));
         if ($onlyregistered) {
             foreach ($sl as $key => $student) {
                 $degrees = $this->curl_request(array('student', $student->studentId, 'degrees'));

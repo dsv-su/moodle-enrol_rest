@@ -70,5 +70,5 @@ $string['userinfofetched'] = 'User info fetched from Daisy: ';
 $string['usernamenotfound'] = 'Username for {$a} not found. No user created';
 $string['userrealm'] = 'User realm';
 $string['userresource'] = 'User information resource';
-$string['userunenroled'] = 'Unenroled user {$a->user} from course {$a->course}';
+$string['userunenroled'] = 'Unenroled user {$a->user} (idnumber {$a->idnumber}) from course {$a->course}';
 $string['withoutdaisy'] = '{$a} does already have an account, but it\'s missing a DaisyID. Trying to add...';
