@@ -493,6 +493,7 @@ class enrol_rest_plugin extends enrol_plugin {
                         $courseid           = trim($courseid);
                         $programid          = '';
                         $coursestart        = 0;
+                        $courseend          = 0;
 
                         if ((strpos($courseid, 'program') !== false) && ($coursefilter == 'program')) {
                             $programid = explode("_", $courseid)[1];
@@ -500,11 +501,8 @@ class enrol_rest_plugin extends enrol_plugin {
                         } else if (is_numeric($courseid) && $coursefilter == 'course') {
                             $studentlist = $this->curl_request(array($courseresource, $courseid, 'participants'));
                             $courseinformation = $this->curl_request(array($courseresource, $courseid));
-                            if (isset($courseinformation->startDate)) {
-                                $coursestart = strtotime($courseinformation->startDate);
-                            } else {
-                                $coursestart = 0;
-                            }
+                            $coursestart = isset($courseinformation->startDate) ? strtotime($courseinformation->startDate) : 0;
+                            $courseend = isset($courseinformation->endDate) ? strtotime($courseinformation->endDate) : 0;
                         } else {
                             continue;
                         }
@@ -554,8 +552,13 @@ class enrol_rest_plugin extends enrol_plugin {
 
                         // Determine what users to enrol, then try to enrol them
                         $userstoenroll = array_diff(array_keys($studentdict), array_keys($enrolledusers));
-                        $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
-                            $studentdict, $userstoenroll), $course, $courseid, $coursestart);
+
+                        // Only enrol users to courses with endDate in future. Does not affect programmes.
+                        if (($coursefilter == 'course' && $courseend > time()) || ($coursefilter == 'program')) {
+                            echo "Enrolling users to ".$course->shortname ." (".$courseid.")\n\r";
+                            $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
+                                $studentdict, $userstoenroll), $course, $courseid, $coursestart);
+                        }
 
                         // Determine users with 'break' attribute enrolled to the courses
                         $userstobreak = array_intersect(array_keys($studentbreak), array_keys($enrolledusers));
