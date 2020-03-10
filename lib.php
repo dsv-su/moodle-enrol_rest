@@ -494,10 +494,12 @@ class enrol_rest_plugin extends enrol_plugin {
                         $programid          = '';
                         $coursestart        = 0;
                         $courseend          = 0;
+                        $level              = '';
 
                         if ((strpos($courseid, 'program') !== false) && ($coursefilter == 'program')) {
                             $programid = explode("_", $courseid)[1];
                             $studentlist = $this->get_program_admissions($programid, true);
+                            $level = $this->curl_request(array('program', $programid))->level;
                         } else if (is_numeric($courseid) && $coursefilter == 'course') {
                             $studentlist = $this->curl_request(array($courseresource, $courseid, 'participants'));
                             $courseinformation = $this->curl_request(array($courseresource, $courseid));
@@ -543,6 +545,12 @@ class enrol_rest_plugin extends enrol_plugin {
                             $maxcoursestart = $coursestart;
                         }
 
+                        if ($level == 'MASTER') {
+                            $programmecourse = $DB->get_record('course', array('id' => 1049));
+                        } else if ($level == 'BACHELOR') {
+                            $programmecourse = $DB->get_record('course', array('id' => 1048));
+                        }
+
                         // Select the idnumers of students already enrolled to this course
                         $enrolledusers = $DB->get_records_sql('SELECT u.idnumber FROM {user_enrolments} ue '.
                                                               'JOIN {user} u ON u.id = ue.userid '.
@@ -558,6 +566,10 @@ class enrol_rest_plugin extends enrol_plugin {
                             echo "Enrolling users to ".$course->shortname ." (".$courseid.")\n\r";
                             $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
                                 $studentdict, $userstoenroll), $course, $courseid, $coursestart);
+                            if (isset($level)) {
+                                $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
+                                    $studentdict, $userstoenroll), $programmecourse, $programmecourse->id, $coursestart);
+                            }
                         }
 
                         // Determine users with 'break' attribute enrolled to the courses
