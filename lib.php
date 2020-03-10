@@ -568,7 +568,7 @@ class enrol_rest_plugin extends enrol_plugin {
                                 $studentdict, $userstoenroll), $course, $courseid, $coursestart);
                             if (isset($level)) {
                                 $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
-                                    $studentdict, $userstoenroll), $programmecourse, $programmecourse->id, $coursestart);
+                                    $studentdict, array_keys($studentdict)), $programmecourse, $programmecourse->id, $coursestart);
                             }
                         }
 
