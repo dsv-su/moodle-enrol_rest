@@ -566,7 +566,7 @@ class enrol_rest_plugin extends enrol_plugin {
                             echo "Enrolling users to ".$course->shortname ." (".$courseid.")\n\r";
                             $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
                                 $studentdict, $userstoenroll), $course, $courseid, $coursestart);
-                            if (isset($level)) {
+                            if (!empty($level)) {
                                 $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
                                     $studentdict, array_keys($studentdict)), $programmecourse, $programmecourse->id, $coursestart);
                             }
