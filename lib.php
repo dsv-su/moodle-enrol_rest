@@ -26,6 +26,8 @@ defined('MOODLE_INTERNAL') || die();
  */
 class enrol_rest_plugin extends enrol_plugin {
 
+    var $ch = null;
+
     public function allow_unenrol(stdClass $instance) {
         // Users with unenrol cap may unenrol other users manually.
         return true;
@@ -58,7 +60,7 @@ class enrol_rest_plugin extends enrol_plugin {
     /**
      * Perform a request to the REST API using the curl-library.
      * Will fetch the URL to the API along with username and password from the plugin settings.
-     * 
+     *
      * @param array $parameters The requested resources/endpoints as an array that will be imploded.
      * @return string|false If successful, returns the decoded response. Else returns false.
      */
@@ -545,9 +547,9 @@ class enrol_rest_plugin extends enrol_plugin {
                             $maxcoursestart = $coursestart;
                         }
 
-                        if ($level == 'MASTER') {
+                        if ($level == 'SECOND_CYCLE') {
                             $programmecourse = $DB->get_record('course', array('id' => 1049));
-                        } else if ($level == 'BACHELOR') {
+                        } else if ($level == 'FIRST_CYCLE') {
                             $programmecourse = $DB->get_record('course', array('id' => 1048));
                         }
 
