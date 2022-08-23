@@ -24,11 +24,13 @@ defined('MOODLE_INTERNAL') || die();
  *         Stockholm University {@link http://dsv.su.se}
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class enrol_rest_plugin extends enrol_plugin {
+class enrol_rest_plugin extends enrol_plugin
+{
 
     var $ch = null;
 
-    public function allow_unenrol(stdClass $instance) {
+    public function allow_unenrol(stdClass $instance)
+    {
         // Users with unenrol cap may unenrol other users manually.
         return true;
     }
@@ -40,7 +42,8 @@ class enrol_rest_plugin extends enrol_plugin {
      * @param stdClass $ue A user enrolment object
      * @return array An array of user_enrolment_actions
      */
-    public function get_user_enrolment_actions(course_enrolment_manager $manager, $ue) {
+    public function get_user_enrolment_actions(course_enrolment_manager $manager, $ue)
+    {
         $actions = array();
         $context = $manager->get_context();
         $instance = $ue->enrolmentinstance;
@@ -48,11 +51,11 @@ class enrol_rest_plugin extends enrol_plugin {
         $params['ue'] = $ue->id;
         if ($this->allow_unenrol_user($instance, $ue) && has_capability("enrol/manual:unenrol", $context)) {
             $url = new moodle_url('/enrol/unenroluser.php', $params);
-            $actions[] = new user_enrolment_action(new pix_icon('t/delete', ''), get_string('unenrol', 'enrol'), $url, array('class'=>'unenrollink', 'rel'=>$ue->id));
+            $actions[] = new user_enrolment_action(new pix_icon('t/delete', ''), get_string('unenrol', 'enrol'), $url, array('class' => 'unenrollink', 'rel' => $ue->id));
         }
         if ($this->allow_manage($instance) && has_capability("enrol/manual:manage", $context)) {
             $url = new moodle_url('/enrol/editenrolment.php', $params);
-            $actions[] = new user_enrolment_action(new pix_icon('t/edit', ''), get_string('edit'), $url, array('class'=>'editenrollink', 'rel'=>$ue->id));
+            $actions[] = new user_enrolment_action(new pix_icon('t/edit', ''), get_string('edit'), $url, array('class' => 'editenrollink', 'rel' => $ue->id));
         }
         return $actions;
     }
@@ -64,17 +67,18 @@ class enrol_rest_plugin extends enrol_plugin {
      * @param array $parameters The requested resources/endpoints as an array that will be imploded.
      * @return string|false If successful, returns the decoded response. Else returns false.
      */
-    private function curl_request($parameters) {
-        $apiurl   = $this->get_config('restapiurl');
+    private function curl_request($parameters)
+    {
+        $apiurl = $this->get_config('restapiurl');
         $username = $this->get_config('username');
         $password = $this->get_config('password');
-        $ch       = curl_init();
+        $ch = curl_init();
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_USERPWD, $username.':'.$password);
+        curl_setopt($ch, CURLOPT_USERPWD, $username . ':' . $password);
         curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/json'));
-        curl_setopt($ch, CURLOPT_URL, $apiurl.implode('/', $parameters));
+        curl_setopt($ch, CURLOPT_URL, $apiurl . implode('/', $parameters));
         $contents = curl_exec($ch);
-        $headers  = curl_getinfo($ch);
+        $headers = curl_getinfo($ch);
         curl_close($ch);
 
         if ($headers['http_code'] == 200) {
@@ -82,21 +86,22 @@ class enrol_rest_plugin extends enrol_plugin {
         } else {
             $a = new stdClass;
             $a->httpcode = $headers['http_code'];
-            $a->path     = implode('/', $parameters); 
-            echo get_string('servererror', 'enrol_rest', $a)."\n";
+            $a->path = implode('/', $parameters);
+            echo get_string('servererror', 'enrol_rest', $a) . "\n";
             return false;
-        }        
+        }
     }
 
     /**
      * Print a question to the user through stdout and read the answer from stdin.
-     * 
+     *
      * @param string $question The question that the user needs to answer.
      * @return bool True if the user answered y, false if the user answered f.
      */
-    private static function ask_stdin_question($question) {
+    private static function ask_stdin_question($question)
+    {
         while (true) {
-            echo "\n".$question." [y/n] ";
+            echo "\n" . $question . " [y/n] ";
             $answer = strtolower(trim(fgets(STDIN)));
             if ($answer == 'y' || $answer == 'n') {
                 return $answer == 'y';
@@ -109,18 +114,19 @@ class enrol_rest_plugin extends enrol_plugin {
      *
      * @param array $message containing encountered errors
      */
-    private function send_error_email($message) {
+    private function send_error_email($message)
+    {
         global $CFG;
         $errorreceiver = $this->get_config('errorreceiver');
 
         // If there's an error-receiver set in the settings
         if ($errorreceiver) {
             $instancename = $CFG->wwwroot;
-            $email = get_string('errormailbody', 'enrol_rest', $instancename)."\n";
+            $email = get_string('errormailbody', 'enrol_rest', $instancename) . "\n";
             $email .= "<pre>";
 
             foreach ($message as $m) {
-            	$email .= $m . "\n";
+                $email .= $m . "\n";
             }
 
             $email .= "</pre>";
@@ -132,7 +138,7 @@ class enrol_rest_plugin extends enrol_plugin {
                 $email, $headers);
 
             if ($sent) {
-                echo get_string('errormailsent', 'enrol_rest')."\n";
+                echo get_string('errormailsent', 'enrol_rest') . "\n";
             }
         }
     }
@@ -142,7 +148,8 @@ class enrol_rest_plugin extends enrol_plugin {
      *
      * @return bool Will always return false.
      */
-    public function roles_protected() {
+    public function roles_protected()
+    {
         return false;
     }
 
@@ -151,7 +158,8 @@ class enrol_rest_plugin extends enrol_plugin {
      *
      * @return string with newly created email
      */
-    private function try_fix_for_daisy_email($username) {
+    private function try_fix_for_daisy_email($username)
+    {
         // Extract the pure username
         $exploded = explode("@", $username);
 
@@ -166,12 +174,13 @@ class enrol_rest_plugin extends enrol_plugin {
      *
      * @return array containing any generated error messages
      */
-    private function enrol_list_of_users($userlist, $course, $courseid, $coursestart) {
-        $automaticenrolment    = $this->get_config('automaticenrolment');
+    private function enrol_list_of_users($userlist, $course, $courseid, $coursestart)
+    {
+        $automaticenrolment = $this->get_config('automaticenrolment');
         $automaticusercreation = $this->get_config('automaticusercreation');
-        $courseresource        = $this->get_config('courseresource');
-        $userrealm             = $this->get_config('userrealm');
-        $userresource          = $this->get_config('userresource');
+        $courseresource = $this->get_config('courseresource');
+        $userrealm = $this->get_config('userrealm');
+        $userresource = $this->get_config('userresource');
 
         // This list keeps track of any errors that might arise during the enrollment
         $errors = array();
@@ -181,17 +190,17 @@ class enrol_rest_plugin extends enrol_plugin {
             global $DB;
 
             // Check if the user already has an account
-            $userinmoodle                = $DB->get_record('user', array('idnumber' => $user->person->id));
+            $userinmoodle = $DB->get_record('user', array('idnumber' => $user->person->id));
 
             // Temporarily store user name in a "fake" user object, so that a proper fullname can be generated later on
             // if we need to create a Moodle user
-            $fullname                    = new stdClass;
-            $fullname->firstname         = $user->person->firstName;
+            $fullname = new stdClass;
+            $fullname->firstname = $user->person->firstName;
             $fullname->firstnamephonetic = "";
-            $fullname->middlename        = "";
-            $fullname->lastname          = $user->person->lastName;
-            $fullname->lastnamephonetic  = "";
-            $fullname->alternatename     = "";
+            $fullname->middlename = "";
+            $fullname->lastname = $user->person->lastName;
+            $fullname->lastnamephonetic = "";
+            $fullname->alternatename = "";
 
             // If this student doesn't have a corresponding Moodle user, or if one exists but has been deleted in Moodle,
             // create a new user account or activate
@@ -204,7 +213,7 @@ class enrol_rest_plugin extends enrol_plugin {
                     foreach ($usernames as $usernamerecord) {
                         if (isset($usernamerecord->realm) && $usernamerecord->realm == $userrealm) {
                             // This is a username for the specified realm (set in settings)! Save it!
-                            $username = strtolower($usernamerecord->username.'@'.$usernamerecord->realm);
+                            $username = strtolower($usernamerecord->username . '@' . $usernamerecord->realm);
                             break;
                         }
                     }
@@ -219,12 +228,12 @@ class enrol_rest_plugin extends enrol_plugin {
                         $createuser = true;
 
                     } else {
-                        $a           = new stdClass;
+                        $a = new stdClass;
                         $a->fullname = fullname($fullname);
                         $a->username = $username;
-                        echo get_string('noaccountfound', 'enrol_rest', $a).'\n';
-                        $createuser = self::ask_stdin_question(get_string('confirmusercreation', 
-                                'enrol_rest', fullname($fullname)));
+                        echo get_string('noaccountfound', 'enrol_rest', $a) . '\n';
+                        $createuser = self::ask_stdin_question(get_string('confirmusercreation',
+                            'enrol_rest', fullname($fullname)));
                     }
 
                     if ($createuser) {
@@ -236,7 +245,7 @@ class enrol_rest_plugin extends enrol_plugin {
 
                             if ($withoutdaisy) {
                                 // Try to add DaisyID to the existing Moodle user
-                                echo get_string('withoutdaisy', 'enrol_rest', $username)."\n";
+                                echo get_string('withoutdaisy', 'enrol_rest', $username) . "\n";
 
                                 $params = array(
                                     'context' => context_user::instance($withoutdaisy->id),
@@ -251,7 +260,7 @@ class enrol_rest_plugin extends enrol_plugin {
                                         'id' => $withoutdaisy->id,
                                         'idnumber' => $user->person->id));
 
-                                    echo get_string('daisyidadded', 'enrol_rest', $username)."\n";
+                                    echo get_string('daisyidadded', 'enrol_rest', $username) . "\n";
 
                                     // Log that daisy id is added.
                                     \enrol_rest\event\daisyid_added::create($params)->trigger();
@@ -259,7 +268,7 @@ class enrol_rest_plugin extends enrol_plugin {
                                 } catch (dml_exception $e) {
                                     // Couldn't update existing Moodle user with a daisy ID
                                     $error = get_string('database_error', 'enrol_rest')
-                                        .get_string('daisyidaddfailed', 'enrol_rest', $username)."\n";
+                                        . get_string('daisyidaddfailed', 'enrol_rest', $username) . "\n";
 
                                     echo $error;
 
@@ -272,7 +281,7 @@ class enrol_rest_plugin extends enrol_plugin {
                                     $createuserfailed = true;
                                 }
 
-                            // A Moodle user doesn't exist for this student, try to create a new one
+                                // A Moodle user doesn't exist for this student, try to create a new one
                             } else {
                                 /* Sometimes, Daisy decides that some users shouldn't have email addresses associated with them
                                    even though Daisy has all the data it needs to add an email address. The creation of a user
@@ -293,17 +302,17 @@ class enrol_rest_plugin extends enrol_plugin {
                                 // Create the new user
                                 try {
                                     $id = $DB->insert_record('user', array(
-                                        'auth'       => 'shibboleth',
-                                        'confirmed'  => 1,
+                                        'auth' => 'shibboleth',
+                                        'confirmed' => 1,
                                         'mnethostid' => 1,
-                                        'username'   => $username,
-                                        'idnumber'   => $user->person->id,
-                                        'firstname'  => $user->person->firstName,
-                                        'lastname'   => $user->person->lastName,
-                                        'email'      => $user->person->email
+                                        'username' => $username,
+                                        'idnumber' => $user->person->id,
+                                        'firstname' => $user->person->firstName,
+                                        'lastname' => $user->person->lastName,
+                                        'email' => $user->person->email
                                     ));
 
-                                    echo get_string('usercreated', 'enrol_rest', $username)."\n";
+                                    echo get_string('usercreated', 'enrol_rest', $username) . "\n";
 
                                     // Log that user is created.
                                     \core\event\user_created::create_from_userid($id)->trigger();
@@ -324,13 +333,13 @@ class enrol_rest_plugin extends enrol_plugin {
                                 } catch (dml_exception $e) {
                                     // If an error occurs when creating the user, make sure to log it thoroughly
                                     $error = get_string('database_error', 'enrol_rest')
-                                        .get_string('usercreatefailed', 'enrol_rest', $username)."\n"
-                                        .get_string('userinfofetched', 'enrol_rest')."\n"
-                                        ."ID: ".$user->person->id."\n"
-                                        ."Username: ".$username."\n"
-                                        ."Firstname: ".$user->person->firstName."\n"
-                                        ."Lastname: ".$user->person->lastName."\n"
-                                        ."Email: ".$user->person->email."\n";
+                                        . get_string('usercreatefailed', 'enrol_rest', $username) . "\n"
+                                        . get_string('userinfofetched', 'enrol_rest') . "\n"
+                                        . "ID: " . $user->person->id . "\n"
+                                        . "Username: " . $username . "\n"
+                                        . "Firstname: " . $user->person->firstName . "\n"
+                                        . "Lastname: " . $user->person->lastName . "\n"
+                                        . "Email: " . $user->person->email . "\n";
                                     echo $error;
 
                                     // Add this to the errors array
@@ -350,7 +359,7 @@ class enrol_rest_plugin extends enrol_plugin {
                     }
 
                 } else {
-                    echo get_string('usernamenotfound', 'enrol_rest', fullname($fullname))."\n";
+                    echo get_string('usernamenotfound', 'enrol_rest', fullname($fullname)) . "\n";
 
                     $params = array(
                         'context' => context_system::instance(),
@@ -365,20 +374,20 @@ class enrol_rest_plugin extends enrol_plugin {
                 }
 
             } else {
-                echo get_string('userexists', 'enrol_rest', fullname($fullname))."\n";
+                echo get_string('userexists', 'enrol_rest', fullname($fullname)) . "\n";
             }
 
             // If this student already has a Moodle user for it, then either automatically enrol or ask whether to enrol
             if ($userinmoodle) {
-                $moodleuser    = $DB->get_record('user', array('idnumber' => $user->person->id));
+                $moodleuser = $DB->get_record('user', array('idnumber' => $user->person->id));
                 $coursecontext = context_course::instance($course->id);
 
                 if ($automaticenrolment) {
                     $enroluser = true;
                 } else {
-                    $a              = new stdClass;
-                    $a->username    = fullname($moodleuser);
-                    $a->coursename  = $course->fullname;
+                    $a = new stdClass;
+                    $a->username = fullname($moodleuser);
+                    $a->coursename = $course->fullname;
                     $a->coursestart = date("r", $coursestart);
                     $enroluser = self::ask_stdin_question(get_string('confirmenrolment', 'enrol_rest', $a));
                 }
@@ -401,7 +410,8 @@ class enrol_rest_plugin extends enrol_plugin {
      * @param boolean $break True if userlist consists of students with breaks, that we need to unenroll.
      * @param stdClass $course The course to unenrol from.
      */
-    private function unenrol_list_of_users($userlist, $course, $coursestart, $break = false) {
+    private function unenrol_list_of_users($userlist, $course, $coursestart, $break = false)
+    {
         global $DB;
         $manualenrolmentenvironment = getenv('MANUALENROLMENT');
         $automaticunenrolment = $this->get_config('automaticunenrolment');
@@ -416,7 +426,7 @@ class enrol_rest_plugin extends enrol_plugin {
                 $a->idnumber = $user->idnumber;
                 $a->course = $course->fullname;
                 $this->process_records('delete', 0, $user, $course, 0, 0);
-                echo get_string('userunenroled', 'enrol_rest', $a)."\n";
+                echo get_string('userunenroled', 'enrol_rest', $a) . "\n";
             }
 
         } else if ($manualenrolmentenvironment) {
@@ -433,7 +443,7 @@ class enrol_rest_plugin extends enrol_plugin {
 
                 if ($unenrolfromcourse) {
                     $this->process_records('delete', 0, $user, $course, 0, 0);
-                    echo get_string('userunenroled', 'enrol_rest', $a)."\n";
+                    echo get_string('userunenroled', 'enrol_rest', $a) . "\n";
                 }
             }
         }
@@ -441,14 +451,15 @@ class enrol_rest_plugin extends enrol_plugin {
 
     /**
      * A method that takes two arrays, one source array and one array that contains keys from the first array.
-     * The method will pick the elements specified by the keys in the secound array and return a new array that 
+     * The method will pick the elements specified by the keys in the secound array and return a new array that
      * only contains those keys.
      *
      * @param array $array The source array
      * @param array $keys An array of keys to select from the source array.
      * @return array The resulting array with the selected keys.
      */
-    private static function pick_elements_from_array($array, $keys) {
+    private static function pick_elements_from_array($array, $keys)
+    {
         $result = array();
         foreach ($keys as $key) {
             if (array_key_exists($key, $array)) {
@@ -459,19 +470,20 @@ class enrol_rest_plugin extends enrol_plugin {
     }
 
     /**
-     * The cron function that will be run in intervals. 
+     * The cron function that will be run in intervals.
      * Will iterate through all courses and fetch student lists for all courses that have an id-number.
      * All students will be enrolled to the course (depending on the settings).
      */
-    public function process_courses($coursefilter = 'all') {
+    public function process_courses($coursefilter = 'all')
+    {
         global $CFG, $DB;
-        $sapiname                   = php_sapi_name();
+        $sapiname = php_sapi_name();
         $manualenrolmentenvironment = getenv('MANUALENROLMENT');
-        $automaticenrolment         = $this->get_config('automaticenrolment');
-        $courseresource             = $this->get_config('courseresource');
+        $automaticenrolment = $this->get_config('automaticenrolment');
+        $courseresource = $this->get_config('courseresource');
 
         if (!$automaticenrolment && ($sapiname != 'cli' || $manualenrolmentenvironment != 'true')) {
-            echo get_string('automaticenrolmentdisabled', 'enrol_rest')."\n";
+            echo get_string('automaticenrolmentdisabled', 'enrol_rest') . "\n";
             return;
         }
 
@@ -482,7 +494,7 @@ class enrol_rest_plugin extends enrol_plugin {
                     $enroltocourse = true;
                 } else if ($manualenrolmentenvironment) {
                     $enroltocourse = self::ask_stdin_question(
-                            get_string("confirmenrolmenttocourse", "enrol_rest", $course->fullname));
+                        get_string("confirmenrolmenttocourse", "enrol_rest", $course->fullname));
                 } else {
                     continue;
                 }
@@ -491,12 +503,12 @@ class enrol_rest_plugin extends enrol_plugin {
                     $maxcoursestart = 0;
                     $courseids = preg_split('/,/', $course->idnumber);
                     $studentdict = array();
-                    foreach($courseids as $courseid) {
-                        $courseid           = trim($courseid);
-                        $programid          = '';
-                        $coursestart        = 0;
-                        $courseend          = 0;
-                        $level              = '';
+                    foreach ($courseids as $courseid) {
+                        $courseid = trim($courseid);
+                        $programid = '';
+                        $coursestart = 0;
+                        $courseend = 0;
+                        $level = '';
 
                         if ((strpos($courseid, 'program') !== false) && ($coursefilter == 'program')) {
                             $programid = explode("_", $courseid)[1];
@@ -512,12 +524,12 @@ class enrol_rest_plugin extends enrol_plugin {
                         }
 
                         if (empty($studentlist)) {
-                            echo get_string('emptystudentlist', 'enrol_rest', $courseid)."\n";
+                            echo get_string('emptystudentlist', 'enrol_rest', $courseid) . "\n";
                             continue;
 
                         } else if ($studentlist === false) {
-                            echo get_string('daisydown', 'enrol_rest')."\n";
-                            $this->send_error_email(get_string('daisydown', 'enrol_rest')."\n");
+                            echo get_string('daisydown', 'enrol_rest') . "\n";
+                            $this->send_error_email(get_string('daisydown', 'enrol_rest') . "\n");
                             die();
                         }
 
@@ -554,23 +566,23 @@ class enrol_rest_plugin extends enrol_plugin {
                         }
 
                         // Select the idnumers of students already enrolled to this course
-                        $enrolledusers = $DB->get_records_sql('SELECT u.idnumber FROM {user_enrolments} ue '.
-                                                              'JOIN {user} u ON u.id = ue.userid '.
-                                                              'JOIN {enrol} e ON ue.enrolid = e.id '.
-                                                              'WHERE e.enrol = ? '.
-                                                              'AND e.courseid = ?', array('rest', $course->id));
+                        $enrolledusers = $DB->get_records_sql('SELECT u.idnumber FROM {user_enrolments} ue ' .
+                            'JOIN {user} u ON u.id = ue.userid ' .
+                            'JOIN {enrol} e ON ue.enrolid = e.id ' .
+                            'WHERE e.enrol = ? ' .
+                            'AND e.courseid = ?', array('rest', $course->id));
 
                         // Determine what users to enrol, then try to enrol them
                         $userstoenroll = array_diff(array_keys($studentdict), array_keys($enrolledusers));
 
-                        // Only enrol users to courses with endDate in future. Does not affect programmes.
+                        // Only enrol users to courses with endDate in the future. Does not affect programmes.
                         if (($coursefilter == 'course' && $courseend > time()) || ($coursefilter == 'program')) {
-                            echo "Enrolling users to ".$course->shortname ." (".$courseid.")\n\r";
+                            echo "Enrolling users to " . $course->shortname . " (" . $courseid . ")\n\r";
                             $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
                                 $studentdict, $userstoenroll), $course, $courseid, $coursestart);
                             if (!empty($level)) {
-                                $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
-                                    $studentdict, array_keys($studentdict)), $programmecourse, $programmecourse->id, $coursestart);
+                                  $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
+                                     $studentdict, array_keys($studentdict)), $programmecourse, $programmecourse->id, $coursestart);
                             }
                         }
 
@@ -579,7 +591,14 @@ class enrol_rest_plugin extends enrol_plugin {
                         $this->unenrol_list_of_users(self::pick_elements_from_array(
                             $enrolledusers, $userstobreak), $course, $coursestart, true);
 
-                        // If any errors occured during enrolment, send email!
+                        if ((strpos($courseid, 'program') !== false) && ($coursefilter == 'program')) {
+                            // We need to unenrol students with obsolete registrations from programmes
+                            $userstounenrollfromprogrammes = array_diff(array_keys($enrolledusers), array_keys($studentdict));
+                            $this->unenrol_list_of_users(self::pick_elements_from_array(
+                                $enrolledusers, $userstounenrollfromprogrammes), $course, $coursestart, true);
+                        }
+
+                            // If any errors occured during enrolment, send email!
                         if (!empty($errors)) {
                             $this->send_error_email($errors);
                         }
@@ -595,25 +614,25 @@ class enrol_rest_plugin extends enrol_plugin {
                         $enrolmentdatebound = strtotime('-1 week', $maxcoursestart);
                     }
                     // Select the idnumers of students already enrolled to this course (recently in case of no autounenrolment).
-                    $recentlyenrolledusers = $DB->get_records_sql('SELECT u.idnumber FROM {user_enrolments} ue '.
-                                                              'JOIN {user} u ON u.id = ue.userid '.
-                                                              'JOIN {enrol} e ON ue.enrolid = e.id '.
-                                                              'WHERE e.enrol = ? '.
-                                                              'AND ue.timestart >= ? '.
-                                                              'AND e.courseid = ?', array('rest', $enrolmentdatebound, $course->id));
+                    $recentlyenrolledusers = $DB->get_records_sql('SELECT u.idnumber FROM {user_enrolments} ue ' .
+                        'JOIN {user} u ON u.id = ue.userid ' .
+                        'JOIN {enrol} e ON ue.enrolid = e.id ' .
+                        'WHERE e.enrol = ? ' .
+                        'AND ue.timestart >= ? ' .
+                        'AND e.courseid = ?', array('rest', $enrolmentdatebound, $course->id));
                     // Determine what users to unenrol, then try to unenrol them
                     $userstounenroll = array_diff(array_keys($recentlyenrolledusers), array_keys($studentdict));
                     $this->unenrol_list_of_users(self::pick_elements_from_array(
-                            $recentlyenrolledusers, $userstounenroll), $course, $maxcoursestart);
+                        $recentlyenrolledusers, $userstounenroll), $course, $maxcoursestart);
                 }
             }
         }
     }
 
     /**
-     * Perform the actual enrolment of the student. 
+     * Perform the actual enrolment of the student.
      * This method is a stripped down version of the method with the same name from enrol_flatfile.
-     * 
+     *
      * @param string $action The only supported action is to add students to courses.
      * @param int $roleid The role that the enroled user will be given.
      * @param stdClass $user The user object for the user to enrol.
@@ -621,7 +640,8 @@ class enrol_rest_plugin extends enrol_plugin {
      * @param int $timestart The deadline when enrolment starts.
      * @param int $timeend The deadline when enrolment ends.
      */
-    private function process_records($action, $roleid, $user, $course, $timestart, $timeend) {
+    private function process_records($action, $roleid, $user, $course, $timestart, $timeend)
+    {
         global $CFG, $DB;
 
         // Create/resurrect a context object
@@ -630,12 +650,12 @@ class enrol_rest_plugin extends enrol_plugin {
         if ($action == 'add') {
             $instance = $DB->get_record('enrol', array(
                 'courseid' => $course->id,
-                'enrol'    => 'rest'
+                'enrol' => 'rest'
             ));
 
             if (empty($instance)) {
                 // Only add an enrol instance to the course if non-existent
-                $enrolid  = $this->add_instance($course);
+                $enrolid = $this->add_instance($course);
                 $instance = $DB->get_record('enrol', array('id' => $enrolid));
             }
 
@@ -644,8 +664,8 @@ class enrol_rest_plugin extends enrol_plugin {
 
         } else if ($action == 'delete') {
             $instances = $DB->get_records('enrol', array(
-                    'enrol'    => 'rest', 
-                    'courseid' => $course->id
+                'enrol' => 'rest',
+                'courseid' => $course->id
             ));
             foreach ($instances as $instance) {
                 $this->unenrol_user($instance, $user->id);
@@ -655,7 +675,9 @@ class enrol_rest_plugin extends enrol_plugin {
         return true;
     }
 
-    private function get_program_admissions($programid, $onlyregistered = false, $startingterm = 20132) {
+    private function get_program_admissions($programid, $onlyregistered = false, $startingterm = 20132)
+    {
+        $startingterm = $this->get_current_term() - 20; // We only add students with a course registration in the last 3 terms plus the current one.
         $sl = $this->curl_request(array('program', $programid, 'admissions'));
         if ($onlyregistered) {
             foreach ($sl as $key => $student) {
@@ -668,14 +690,13 @@ class enrol_rest_plugin extends enrol_plugin {
                 }
                 $courseregistrations = $this->curl_request(array('student', $student->studentId, 'courseRegistrations'));
                 $registeredtoacourse = false;
-                //var_dump($courseregistrations);
                 foreach ($courseregistrations as $courseregistration) {
-                    if (isset($courseregistration->programId) && $courseregistration->programId == $programid && ($courseregistration->semester>= $startingterm)) {
+                    if (isset($courseregistration->programId) && $courseregistration->programId == $programid && ($courseregistration->semester > $startingterm)) {
                         $registeredtoacourse = true;
                     }
                 }
                 if (!$registeredtoacourse) {
-                    echo "Skipping person $student->studentId because of no course registration\n\r";
+                    echo "Skipping person $student->studentId because of no course registration for the given programme within the last 3 terms\n\r";
                     unset($sl[$key]);
                 }
                 $student->person = $this->curl_request(array('person', $student->studentId));
@@ -684,12 +705,13 @@ class enrol_rest_plugin extends enrol_plugin {
         return $sl;
     }
 
-        public function allow_manage(stdClass $instance) {
+    public function allow_manage(stdClass $instance)
+    {
         // Users with manage cap may tweak period and status.
         return true;
     }
 
-        /**
+    /**
      * Restore instance and map settings.
      *
      * @param restore_enrolments_structure_step $step
@@ -697,10 +719,11 @@ class enrol_rest_plugin extends enrol_plugin {
      * @param stdClass $course
      * @param int $oldid
      */
-    public function restore_instance(restore_enrolments_structure_step $step, stdClass $data, $course, $oldid) {
+    public function restore_instance(restore_enrolments_structure_step $step, stdClass $data, $course, $oldid)
+    {
         global $DB;
         // There is only I manual enrol instance allowed per course.
-        if ($instances = $DB->get_records('enrol', array('courseid'=>$data->courseid, 'enrol'=>'rest'), 'id')) {
+        if ($instances = $DB->get_records('enrol', array('courseid' => $data->courseid, 'enrol' => 'rest'), 'id')) {
             $instance = reset($instances);
             $instanceid = $instance->id;
         } else {
@@ -709,7 +732,7 @@ class enrol_rest_plugin extends enrol_plugin {
         $step->set_mapping('enrol', $oldid, $instanceid);
     }
 
-        /**
+    /**
      * Restore user enrolment.
      *
      * @param restore_enrolments_structure_step $step
@@ -719,13 +742,14 @@ class enrol_rest_plugin extends enrol_plugin {
      * @param int $userid
      */
 
-    public function restore_user_enrolment(restore_enrolments_structure_step $step, $data, $instance, $userid, $oldinstancestatus) {
+    public function restore_user_enrolment(restore_enrolments_structure_step $step, $data, $instance, $userid, $oldinstancestatus)
+    {
         global $DB;
 
         // Note: this is a bit tricky because other types may be converted to manual enrolments,
         //       and manual is restricted to one enrolment per user.
 
-        $ue = $DB->get_record('user_enrolments', array('enrolid'=>$instance->id, 'userid'=>$userid));
+        $ue = $DB->get_record('user_enrolments', array('enrolid' => $instance->id, 'userid' => $userid));
         $enrol = false;
         if ($ue and $ue->status == ENROL_USER_ACTIVE) {
             // We do not want to restrict current active enrolments, let's kind of merge the times only.
@@ -769,7 +793,8 @@ class enrol_rest_plugin extends enrol_plugin {
      * @param int $userid
      * @param int $contextid
      */
-    public function restore_role_assignment($instance, $roleid, $userid, $contextid) {
+    public function restore_role_assignment($instance, $roleid, $userid, $contextid)
+    {
         // This is necessary only because we may migrate other types to this instance,
         // we do not use component in manual or self enrol.
         role_assign($roleid, $userid, $contextid, '', 0);
@@ -781,13 +806,33 @@ class enrol_rest_plugin extends enrol_plugin {
      * @param int $groupid
      * @param int $userid
      */
-    public function restore_group_member($instance, $groupid, $userid) {
+    public function restore_group_member($instance, $groupid, $userid)
+    {
         global $CFG;
         require_once("$CFG->dirroot/group/lib.php");
 
         // This might be called when forcing restore as manual enrolments.
-
         groups_add_member($groupid, $userid);
+    }
+
+    /**
+     * Get the current term. January counts for previos year's HT, August counts for current year's HT.
+     * @return string
+     */
+    public function get_current_term(): string
+    {
+        $term = date("Y");
+        $month = date("m");
+        if ($month < 2) {
+            // It's HT of the previous year
+            return ($term - 1) . '2';
+        }
+        if ($month >= 8) {
+            // August counts towards HT
+            return $term . '2';
+        }
+        return $term .= '1';
+
     }
 
 }
