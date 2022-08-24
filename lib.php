@@ -15,6 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 defined('MOODLE_INTERNAL') || die();
+require_once("$CFG->dirroot/group/lib.php");
 
 /**
  * REST enrolment plugin main library file.
@@ -29,7 +30,7 @@ class enrol_rest_plugin extends enrol_plugin
 
     var $ch = null;
 
-    public function allow_unenrol(stdClass $instance)
+    public function allow_unenrol(stdClass $instance): bool
     {
         // Users with unenrol cap may unenrol other users manually.
         return true;
@@ -174,7 +175,7 @@ class enrol_rest_plugin extends enrol_plugin
      *
      * @return array containing any generated error messages
      */
-    private function enrol_list_of_users($userlist, $course, $courseid, $coursestart)
+    private function enrol_list_of_users($userlist, $course, $courseid, $coursestart, $admissionsemesters = null)
     {
         $automaticenrolment = $this->get_config('automaticenrolment');
         $automaticusercreation = $this->get_config('automaticusercreation');
@@ -355,7 +356,7 @@ class enrol_rest_plugin extends enrol_plugin
                             $DB->update_record('user', $userinmoodle);
                         }
 
-                        $userinmoodle = (!$createuserfailed ? true : false);
+                        $userinmoodle = !$createuserfailed;
                     }
 
                 } else {
@@ -393,7 +394,7 @@ class enrol_rest_plugin extends enrol_plugin
                 }
 
                 if ($enroluser) {
-                    $this->process_records('add', 5, $moodleuser, $course, $coursestart, 0);
+                    $this->process_records('add', 5, $moodleuser, $course, $coursestart, 0, $admissionsemesters[$moodleuser->idnumber] ?? null);
                 }
             }
         }
@@ -509,10 +510,11 @@ class enrol_rest_plugin extends enrol_plugin
                         $coursestart = 0;
                         $courseend = 0;
                         $level = '';
+                        $admissionsemesters = [];
 
                         if ((strpos($courseid, 'program') !== false) && ($coursefilter == 'program')) {
                             $programid = explode("_", $courseid)[1];
-                            $studentlist = $this->get_program_admissions($programid, true);
+                            list($studentlist, $admissionsemesters) = $this->get_program_admissions($programid, true);
                             $level = $this->curl_request(array('program', $programid))->level;
                         } else if (is_numeric($courseid) && $coursefilter == 'course') {
                             $studentlist = $this->curl_request(array($courseresource, $courseid, 'participants'));
@@ -575,14 +577,32 @@ class enrol_rest_plugin extends enrol_plugin
                         // Determine what users to enrol, then try to enrol them
                         $userstoenroll = array_diff(array_keys($studentdict), array_keys($enrolledusers));
 
+                        if ($coursefilter == 'program' && strpos($courseid, 'program') !== false) {
+                            // We need to update groups for the currently enrolled students
+                            $programid = explode("_", $courseid)[1];
+                            foreach ($enrolledusers as $student) {
+                                $admissions = $this->curl_request(array('student', $student->idnumber, 'programAdmissions'));
+                                $admissionsemester = false;
+                                foreach ($admissions as $admission) {
+                                    if ($admission->programId == $programid) {
+                                        $admissionsemester = $admission->admissionSemester;
+                                    }
+                                }
+                                if ($admissionsemester) {
+                                    $enrolleduser = $DB->get_record('user', array('idnumber' => $student->idnumber));
+                                    $this->add_to_group($admissionsemester, $course, $enrolleduser);
+                                }
+                            }
+                        }
+
                         // Only enrol users to courses with endDate in the future. Does not affect programmes.
                         if (($coursefilter == 'course' && $courseend > time()) || ($coursefilter == 'program')) {
                             echo "Enrolling users to " . $course->shortname . " (" . $courseid . ")\n\r";
                             $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
-                                $studentdict, $userstoenroll), $course, $courseid, $coursestart);
+                                $studentdict, $userstoenroll), $course, $courseid, $coursestart, $admissionsemesters);
                             if (!empty($level)) {
-                                  $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
-                                     $studentdict, array_keys($studentdict)), $programmecourse, $programmecourse->id, $coursestart);
+                                $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
+                                    $studentdict, array_keys($studentdict)), $programmecourse, $programmecourse->id, $coursestart);
                             }
                         }
 
@@ -598,7 +618,7 @@ class enrol_rest_plugin extends enrol_plugin
                                 $enrolledusers, $userstounenrollfromprogrammes), $course, $coursestart, true);
                         }
 
-                            // If any errors occured during enrolment, send email!
+                        // If any errors occured during enrolment, send email!
                         if (!empty($errors)) {
                             $this->send_error_email($errors);
                         }
@@ -640,7 +660,7 @@ class enrol_rest_plugin extends enrol_plugin
      * @param int $timestart The deadline when enrolment starts.
      * @param int $timeend The deadline when enrolment ends.
      */
-    private function process_records($action, $roleid, $user, $course, $timestart, $timeend)
+    private function process_records($action, $roleid, $user, $course, $timestart, $timeend, $term = null)
     {
         global $CFG, $DB;
 
@@ -662,6 +682,10 @@ class enrol_rest_plugin extends enrol_plugin
             // Enrol the user with this plugin instance
             $this->enrol_user($instance, $user->id, $roleid, $timestart, $timeend);
 
+            if ($term) {
+                $this->add_to_group($term, $course, $user);
+            }
+
         } else if ($action == 'delete') {
             $instances = $DB->get_records('enrol', array(
                 'enrol' => 'rest',
@@ -679,6 +703,7 @@ class enrol_rest_plugin extends enrol_plugin
     {
         $startingterm = $this->get_current_term() - 20; // We only add students with a course registration in the last 3 terms plus the current one.
         $sl = $this->curl_request(array('program', $programid, 'admissions'));
+        $admissionsemesters = [];
         if ($onlyregistered) {
             foreach ($sl as $key => $student) {
                 $degrees = $this->curl_request(array('student', $student->studentId, 'degrees'));
@@ -698,11 +723,13 @@ class enrol_rest_plugin extends enrol_plugin
                 if (!$registeredtoacourse) {
                     echo "Skipping person $student->studentId because of no course registration for the given programme within the last 3 terms\n\r";
                     unset($sl[$key]);
+                } else {
+                    $admissionsemesters[$student->studentId] = $student->admissionSemester;
                 }
                 $student->person = $this->curl_request(array('person', $student->studentId));
             }
         }
-        return $sl;
+        return [$sl, $admissionsemesters];
     }
 
     public function allow_manage(stdClass $instance)
@@ -817,6 +844,7 @@ class enrol_rest_plugin extends enrol_plugin
 
     /**
      * Get the current term. January counts for previos year's HT, August counts for current year's HT.
+     *
      * @return string
      */
     public function get_current_term(): string
@@ -835,4 +863,46 @@ class enrol_rest_plugin extends enrol_plugin
 
     }
 
+    /**
+     * Translates e.g. 20221 to VT2022
+     *
+     * @param $term
+     * @return string
+     */
+    public function get_readable_term($term)
+    {
+        if (!$term) {
+            return false;
+        }
+        $year = substr($term, 0, 4);
+        if ($term % 2 == 0) {
+            return 'HT' . $year;
+        } else {
+            return 'VT' . $year;
+        }
+    }
+
+    /**
+     * @param $term
+     * @param $course
+     * @param $user
+     * @return void
+     * @throws coding_exception
+     * @throws dml_exception
+     * @throws moodle_exception
+     */
+    private function add_to_group($term, $course, $user): void
+    {
+        global $DB;
+        $groupname = $this->get_readable_term($term);
+        // Create group if needed
+        $groupid = $DB->get_field('groups', 'id', ['courseid' => $course->id, 'name' => $groupname]) ?? null;
+        if (!$groupid) {
+            $data = new stdClass();
+            $data->name = $groupname;
+            $data->courseid = $course->id;
+            $groupid = groups_create_group($data);
+        }
+        groups_add_member($groupid, $user->id);
+    }
 }
