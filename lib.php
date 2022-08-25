@@ -849,18 +849,18 @@ class enrol_rest_plugin extends enrol_plugin
      */
     public function get_current_term(): string
     {
-        $term = date("Y");
+        $year = date("Y");
         $month = date("m");
+        $term = $year . '1';
         if ($month < 2) {
             // It's HT of the previous year
-            return ($term - 1) . '2';
+            $term = ($year - 1) . '2';
         }
         if ($month >= 8) {
             // August counts towards HT
-            return $term . '2';
+            $term = $year . '2';
         }
-        return $term .= '1';
-
+        return $term;
     }
 
     /**
