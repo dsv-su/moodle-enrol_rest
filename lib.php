@@ -550,7 +550,7 @@ class enrol_rest_plugin extends enrol_plugin
                             // Course case
                             foreach ($studentlist as $student) {
                                 if (isset($student->break) && $student->break === true) {
-                                    $studentbreak[$student->person->id] = $student;
+                                    //  $studentbreak[$student->person->id] = $student;
                                 } else {
                                     $studentdict[$student->person->id] = $student;
                                 }
