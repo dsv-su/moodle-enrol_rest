@@ -482,13 +482,29 @@ class enrol_rest_plugin extends enrol_plugin
         $manualenrolmentenvironment = getenv('MANUALENROLMENT');
         $automaticenrolment = $this->get_config('automaticenrolment');
         $courseresource = $this->get_config('courseresource');
-
+        $coursecategories = $this->get_config('coursecategories');
         if (!$automaticenrolment && ($sapiname != 'cli' || $manualenrolmentenvironment != 'true')) {
             echo get_string('automaticenrolmentdisabled', 'enrol_rest') . "\n";
             return;
         }
 
-        $allcourses = get_courses();
+        $allcourses = [];
+        if($coursefilter == 'course') {
+            if(!empty($coursecategories)) {
+                $catList = preg_split('/,/', $coursecategories);
+                foreach($catList as $catid) {
+                    $courses = get_courses($catid);
+                    array_push($allcourses,...$courses);
+                }
+         } else {
+            $allcourses = get_courses();
+         }
+        }
+
+        if($coursefilter == 'program') {
+            $allcourses = get_courses();
+        }
+
         foreach ($allcourses as $course) {
             if ($course->idnumber) {
                 if ($automaticenrolment) {
