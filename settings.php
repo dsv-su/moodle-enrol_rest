@@ -36,6 +36,7 @@ if ($ADMIN->fulltree) {
     $settings->add(new admin_setting_configtext('enrol_rest/username', get_string('username'), '', ''));
     $settings->add(new admin_setting_configtext('enrol_rest/password', get_string('password'), '', ''));
     $settings->add(new admin_setting_configtext('enrol_rest/courseresource', get_string('courseresource', 'enrol_rest'), '', ''));
+    $settings->add(new admin_setting_configtext('enrol_rest/coursecategories', get_string('coursecategories', 'enrol_rest'), '', ''));
     $settings->add(new admin_setting_configtext('enrol_rest/userresource', get_string('userresource', 'enrol_rest'), '', ''));
     $settings->add(new admin_setting_configtext('enrol_rest/userrealm', get_string('userrealm', 'enrol_rest'), '', ''));
 }
