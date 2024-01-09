@@ -381,7 +381,6 @@ class enrol_rest_plugin extends enrol_plugin
             // If this student already has a Moodle user for it, then either automatically enrol or ask whether to enrol
             if ($userinmoodle) {
                 $moodleuser = $DB->get_record('user', array('idnumber' => $user->person->id));
-                $coursecontext = context_course::instance($course->id);
 
                 if ($automaticenrolment) {
                     $enroluser = true;
@@ -577,11 +576,6 @@ class enrol_rest_plugin extends enrol_plugin
                             $maxcoursestart = $coursestart;
                         }
 
-                        if ($level == 'SECOND_CYCLE') {
-                            $programmecourse = $DB->get_record('course', array('id' => 1049));
-                        } else if ($level == 'FIRST_CYCLE') {
-                            $programmecourse = $DB->get_record('course', array('id' => 1048));
-                        }
 
                         // Select the idnumers of students already enrolled to this course
                         $enrolledusers = $DB->get_records_sql('SELECT u.idnumber FROM {user_enrolments} ue ' .
@@ -616,10 +610,7 @@ class enrol_rest_plugin extends enrol_plugin
                             echo "Enrolling users to " . $course->shortname . " (" . $courseid . ")\n\r";
                             $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
                                 $studentdict, $userstoenroll), $course, $courseid, $coursestart, $admissionsemesters);
-                            if (!empty($level)) {
-                                $errors = $this->enrol_list_of_users(self::pick_elements_from_array(
-                                    $studentdict, array_keys($studentdict)), $programmecourse, $programmecourse->id, $coursestart);
-                            }
+                     
                         }
 
                         // Determine users with 'break' attribute enrolled to the courses
@@ -680,8 +671,6 @@ class enrol_rest_plugin extends enrol_plugin
     {
         global $CFG, $DB;
 
-        // Create/resurrect a context object
-        $context = context_course::instance($course->id);
 
         if ($action == 'add') {
             $instance = $DB->get_record('enrol', array(
