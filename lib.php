@@ -705,7 +705,8 @@ class enrol_rest_plugin extends enrol_plugin
     private function get_program_admissions($programid, $onlyregistered = false, $startingterm = 20132)
     {
         $startingterm = $this->get_current_term() - 20; // We only add students with a course registration in the last 3 terms plus the current one.
-        $sl = $this->curl_request(array('program', $programid, 'admissions'));
+        $sl = $this->curl_request(array('program', $programid, 'admissions?includeDiscontinued=false'));
+       
         $admissionsemesters = [];
         if ($onlyregistered) {
             foreach ($sl as $key => $student) {
