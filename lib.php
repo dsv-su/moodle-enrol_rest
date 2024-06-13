@@ -710,13 +710,13 @@ class enrol_rest_plugin extends enrol_plugin
         $admissionsemesters = [];
         if ($onlyregistered) {
             foreach ($sl as $key => $student) {
-                $degrees = $this->curl_request(array('student', $student->studentId, 'degrees'));
+          /*       $degrees = $this->curl_request(array('student', $student->studentId, 'degrees'));
                 foreach ($degrees as $keydegree => $degree) {
                     if (isset($degree->programId) && ($degree->programId == $programid)) {
                         echo "Skipping person $student->studentId because of degree\n\r";
                         unset($sl[$key]);
                     }
-                }
+                } */
                 $courseregistrations = $this->curl_request(array('student', $student->studentId, 'courseRegistrations'));
                 $registeredtoacourse = false;
                 foreach ($courseregistrations as $courseregistration) {
