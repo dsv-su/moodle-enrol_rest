@@ -524,13 +524,11 @@ class enrol_rest_plugin extends enrol_plugin
                         $programid = '';
                         $coursestart = 0;
                         $courseend = 0;
-                        $level = '';
                         $admissionsemesters = [];
 
                         if ((strpos($courseid, 'program') !== false) && ($coursefilter == 'program')) {
                             $programid = explode("_", $courseid)[1];
                             list($studentlist, $admissionsemesters) = $this->get_program_admissions($programid, true);
-                            $level = $this->curl_request(array('program', $programid))->level;
                         } else if (is_numeric($courseid) && $coursefilter == 'course') {
                             $studentlist = $this->curl_request(array($courseresource, $courseid, 'participants'));
                             $courseinformation = $this->curl_request(array($courseresource, $courseid));
